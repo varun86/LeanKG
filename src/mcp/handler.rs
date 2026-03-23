@@ -1,6 +1,6 @@
 use crate::db::models::{CodeElement, Relationship};
-use crate::graph::{GraphEngine, ImpactAnalyzer};
 use crate::graph::traversal::ImpactResult;
+use crate::graph::{GraphEngine, ImpactAnalyzer};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
@@ -13,14 +13,11 @@ impl ToolHandler {
         Self { graph_engine }
     }
 
-    pub async fn execute_tool(
-        &self,
-        tool_name: &str,
-        arguments: &Value,
-    ) -> Result<Value, String> {
+    pub async fn execute_tool(&self, tool_name: &str, arguments: &Value) -> Result<Value, String> {
         match tool_name {
             "query_file" => self.query_file(arguments).await,
             "get_dependencies" => self.get_dependencies(arguments).await,
+            "get_dependents" => self.get_dependents(arguments).await,
             "get_impact_radius" => self.get_impact_radius(arguments).await,
             "get_review_context" => self.get_review_context(arguments).await,
             "get_context" => self.get_context(arguments).await,
@@ -39,54 +36,82 @@ impl ToolHandler {
             .as_str()
             .ok_or("Missing 'pattern' parameter")?;
 
-        let elements = self.graph_engine.all_elements().await
+        let elements = self
+            .graph_engine
+            .all_elements()
+            .await
             .map_err(|e| e.to_string())?;
 
         let matches: Vec<_> = elements
             .iter()
-            .filter(|e| {
-                e.file_path.contains(pattern) || e.qualified_name.contains(pattern)
-            })
+            .filter(|e| e.file_path.contains(pattern) || e.qualified_name.contains(pattern))
             .take(50)
-            .map(|e| json!({
-                "qualified_name": e.qualified_name,
-                "name": e.name,
-                "type": e.element_type,
-                "file": e.file_path,
-                "line": e.line_start
-            }))
+            .map(|e| {
+                json!({
+                    "qualified_name": e.qualified_name,
+                    "name": e.name,
+                    "type": e.element_type,
+                    "file": e.file_path,
+                    "line": e.line_start
+                })
+            })
             .collect();
 
         Ok(json!({ "files": matches }))
     }
 
     async fn get_dependencies(&self, args: &Value) -> Result<Value, String> {
-        let file = args["file"]
-            .as_str()
-            .ok_or("Missing 'file' parameter")?;
+        let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
 
-        let relationships = self.graph_engine.get_relationships(file).await
+        let relationships = self
+            .graph_engine
+            .get_relationships(file)
+            .await
             .map_err(|e| e.to_string())?;
 
         let deps: Vec<_> = relationships
             .iter()
-            .map(|r| json!({
-                "target": r.target_qualified,
-                "type": r.rel_type
-            }))
+            .map(|r| {
+                json!({
+                    "target": r.target_qualified,
+                    "type": r.rel_type
+                })
+            })
             .collect();
 
         Ok(json!({ "dependencies": deps }))
     }
 
+    async fn get_dependents(&self, args: &Value) -> Result<Value, String> {
+        let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
+
+        let relationships = self
+            .graph_engine
+            .get_dependents(file)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let deps: Vec<_> = relationships
+            .iter()
+            .map(|r| {
+                json!({
+                    "source": r.source_qualified,
+                    "type": r.rel_type
+                })
+            })
+            .collect();
+
+        Ok(json!({ "dependents": deps }))
+    }
+
     async fn get_impact_radius(&self, args: &Value) -> Result<Value, String> {
-        let file = args["file"]
-            .as_str()
-            .ok_or("Missing 'file' parameter")?;
+        let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
         let depth = args["depth"].as_u64().unwrap_or(3) as u32;
 
         let analyzer = ImpactAnalyzer::new(&self.graph_engine);
-        let result = analyzer.calculate_impact_radius(file, depth).await
+        let result = analyzer
+            .calculate_impact_radius(file, depth)
+            .await
             .map_err(|e| e.to_string())?;
 
         Ok(json!({
@@ -146,20 +171,18 @@ impl ToolHandler {
     }
 
     async fn get_context(&self, args: &Value) -> Result<Value, String> {
-        let file = args["file"]
-            .as_str()
-            .ok_or("Missing 'file' parameter")?;
-        
-        let max_tokens = args["max_tokens"]
-            .as_u64()
-            .unwrap_or(4000) as usize;
+        let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
 
-        let result = self.graph_engine
+        let max_tokens = args["max_tokens"].as_u64().unwrap_or(4000) as usize;
+
+        let result = self
+            .graph_engine
             .get_context(file, max_tokens)
             .await
             .map_err(|e| e.to_string())?;
 
-        let elements_json: Vec<_> = result.elements
+        let elements_json: Vec<_> = result
+            .elements
             .iter()
             .map(|ctx_elem| {
                 let elem = &ctx_elem.element;
@@ -192,25 +215,26 @@ impl ToolHandler {
     }
 
     async fn find_function(&self, args: &Value) -> Result<Value, String> {
-        let name = args["name"]
-            .as_str()
-            .ok_or("Missing 'name' parameter")?;
+        let name = args["name"].as_str().ok_or("Missing 'name' parameter")?;
 
-        let elements = self.graph_engine.all_elements().await
+        let elements = self
+            .graph_engine
+            .all_elements()
+            .await
             .map_err(|e| e.to_string())?;
 
         let matches: Vec<_> = elements
             .iter()
-            .filter(|e| {
-                e.element_type == "function" && e.name.contains(name)
+            .filter(|e| e.element_type == "function" && e.name.contains(name))
+            .map(|e| {
+                json!({
+                    "qualified_name": e.qualified_name,
+                    "name": e.name,
+                    "file": e.file_path,
+                    "line": e.line_start,
+                    "line_end": e.line_end
+                })
             })
-            .map(|e| json!({
-                "qualified_name": e.qualified_name,
-                "name": e.name,
-                "file": e.file_path,
-                "line": e.line_start,
-                "line_end": e.line_end
-            }))
             .collect();
 
         Ok(json!({ "functions": matches }))
@@ -221,56 +245,65 @@ impl ToolHandler {
             .as_str()
             .ok_or("Missing 'function' parameter")?;
 
-        let relationships = self.graph_engine.get_relationships(function).await
+        let relationships = self
+            .graph_engine
+            .get_relationships(function)
+            .await
             .map_err(|e| e.to_string())?;
 
         let calls: Vec<_> = relationships
             .iter()
             .filter(|r| r.rel_type == "calls" || r.rel_type == "imports")
-            .map(|r| json!({
-                "target": r.target_qualified,
-                "type": r.rel_type
-            }))
+            .map(|r| {
+                json!({
+                    "target": r.target_qualified,
+                    "type": r.rel_type
+                })
+            })
             .collect();
 
         Ok(json!({ "calls": calls }))
     }
 
     async fn search_code(&self, args: &Value) -> Result<Value, String> {
-        let query = args["query"]
-            .as_str()
-            .ok_or("Missing 'query' parameter")?;
+        let query = args["query"].as_str().ok_or("Missing 'query' parameter")?;
 
-        let elements = self.graph_engine.all_elements().await
+        let elements = self
+            .graph_engine
+            .all_elements()
+            .await
             .map_err(|e| e.to_string())?;
 
         let query_lower = query.to_lowercase();
         let matches: Vec<_> = elements
             .iter()
             .filter(|e| {
-                e.name.to_lowercase().contains(&query_lower) ||
-                e.qualified_name.to_lowercase().contains(&query_lower) ||
-                e.element_type.to_lowercase().contains(&query_lower)
+                e.name.to_lowercase().contains(&query_lower)
+                    || e.qualified_name.to_lowercase().contains(&query_lower)
+                    || e.element_type.to_lowercase().contains(&query_lower)
             })
             .take(100)
-            .map(|e| json!({
-                "qualified_name": e.qualified_name,
-                "name": e.name,
-                "type": e.element_type,
-                "file": e.file_path,
-                "line": e.line_start
-            }))
+            .map(|e| {
+                json!({
+                    "qualified_name": e.qualified_name,
+                    "name": e.name,
+                    "type": e.element_type,
+                    "file": e.file_path,
+                    "line": e.line_start
+                })
+            })
             .collect();
 
         Ok(json!({ "results": matches }))
     }
 
     async fn generate_doc(&self, args: &Value) -> Result<Value, String> {
-        let file = args["file"]
-            .as_str()
-            .ok_or("Missing 'file' parameter")?;
+        let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
 
-        let elements = self.graph_engine.all_elements().await
+        let elements = self
+            .graph_engine
+            .all_elements()
+            .await
             .map_err(|e| e.to_string())?;
 
         let file_elements: Vec<CodeElement> = elements
@@ -286,46 +319,56 @@ impl ToolHandler {
     async fn find_large_functions(&self, args: &Value) -> Result<Value, String> {
         let min_lines = args["min_lines"].as_u64().unwrap_or(50) as u32;
 
-        let elements = self.graph_engine.all_elements().await
+        let elements = self
+            .graph_engine
+            .all_elements()
+            .await
             .map_err(|e| e.to_string())?;
 
         let large_functions: Vec<_> = elements
             .iter()
             .filter(|e| {
-                e.element_type == "function" &&
-                (e.line_end.saturating_sub(e.line_start)) >= min_lines
+                e.element_type == "function"
+                    && (e.line_end.saturating_sub(e.line_start)) >= min_lines
             })
-            .map(|e| json!({
-                "qualified_name": e.qualified_name,
-                "name": e.name,
-                "file": e.file_path,
-                "lines": e.line_end - e.line_start,
-                "line_start": e.line_start,
-                "line_end": e.line_end
-            }))
+            .map(|e| {
+                json!({
+                    "qualified_name": e.qualified_name,
+                    "name": e.name,
+                    "file": e.file_path,
+                    "lines": e.line_end - e.line_start,
+                    "line_start": e.line_start,
+                    "line_end": e.line_end
+                })
+            })
             .collect();
 
         Ok(json!({ "large_functions": large_functions }))
     }
 
     async fn get_tested_by(&self, args: &Value) -> Result<Value, String> {
-        let file = args["file"]
-            .as_str()
-            .ok_or("Missing 'file' parameter")?;
+        let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
 
-        let relationships = self.graph_engine.get_relationships(file).await
+        let relationships = self
+            .graph_engine
+            .get_relationships(file)
+            .await
             .map_err(|e| e.to_string())?;
 
         let tests: Vec<_> = relationships
             .iter()
             .filter(|r| {
-                r.rel_type == "tested_by" || r.rel_type == "tests" ||
-                r.target_qualified.contains("test") || r.target_qualified.contains("spec")
+                r.rel_type == "tested_by"
+                    || r.rel_type == "tests"
+                    || r.target_qualified.contains("test")
+                    || r.target_qualified.contains("spec")
             })
-            .map(|r| json!({
-                "test": r.target_qualified,
-                "type": r.rel_type
-            }))
+            .map(|r| {
+                json!({
+                    "test": r.target_qualified,
+                    "type": r.rel_type
+                })
+            })
             .collect();
 
         Ok(json!({ "tests": tests }))
@@ -340,13 +383,16 @@ fn generate_review_prompt(elements: &[CodeElement], _relationships: &[Relationsh
     let mut prompt = String::from("# Code Review Context\n\n");
     prompt += &format!("## Files to Review ({} elements)\n\n", elements.len());
 
-    let files: std::collections::HashSet<_> = elements.iter().map(|e| e.file_path.clone()).collect();
+    let files: std::collections::HashSet<_> =
+        elements.iter().map(|e| e.file_path.clone()).collect();
     for file in files {
         prompt += &format!("### {}\n", file);
         let file_elements: Vec<_> = elements.iter().filter(|e| e.file_path == file).collect();
         for elem in file_elements {
-            prompt += &format!("- **{}** (`{}`): lines {}-{}\n", 
-                elem.name, elem.element_type, elem.line_start, elem.line_end);
+            prompt += &format!(
+                "- **{}** (`{}`): lines {}-{}\n",
+                elem.name, elem.element_type, elem.line_start, elem.line_end
+            );
         }
         prompt += "\n";
     }
@@ -372,8 +418,14 @@ fn generate_documentation(file_path: &str, elements: &[CodeElement]) -> String {
     doc += &format!("## Overview\n\n");
     doc += &format!("This file contains {} code elements.\n\n", elements.len());
 
-    let functions: Vec<_> = elements.iter().filter(|e| e.element_type == "function").collect();
-    let classes: Vec<_> = elements.iter().filter(|e| e.element_type == "class").collect();
+    let functions: Vec<_> = elements
+        .iter()
+        .filter(|e| e.element_type == "function")
+        .collect();
+    let classes: Vec<_> = elements
+        .iter()
+        .filter(|e| e.element_type == "class")
+        .collect();
 
     if !functions.is_empty() {
         doc += &format!("## Functions ({})\n\n", functions.len());
@@ -391,7 +443,10 @@ fn generate_documentation(file_path: &str, elements: &[CodeElement]) -> String {
         doc += &format!("## Classes ({})\n\n", classes.len());
         for class in classes {
             doc += &format!("### `{}`\n\n", class.name);
-            doc += &format!("- Location: lines {}-{}\n", class.line_start, class.line_end);
+            doc += &format!(
+                "- Location: lines {}-{}\n",
+                class.line_start, class.line_end
+            );
             doc += "\n";
         }
     }
@@ -411,19 +466,17 @@ mod tests {
 
     #[test]
     fn test_generate_review_prompt_with_elements() {
-        let elements = vec![
-            CodeElement {
-                qualified_name: "src/main.rs::main".to_string(),
-                element_type: "function".to_string(),
-                name: "main".to_string(),
-                file_path: "src/main.rs".to_string(),
-                line_start: 1,
-                line_end: 10,
-                language: "rust".to_string(),
-                parent_qualified: None,
-                metadata: json!({}),
-            }
-        ];
+        let elements = vec![CodeElement {
+            qualified_name: "src/main.rs::main".to_string(),
+            element_type: "function".to_string(),
+            name: "main".to_string(),
+            file_path: "src/main.rs".to_string(),
+            line_start: 1,
+            line_end: 10,
+            language: "rust".to_string(),
+            parent_qualified: None,
+            metadata: json!({}),
+        }];
         let prompt = generate_review_prompt(&elements, &[]);
         assert!(prompt.contains("main"));
         assert!(prompt.contains("src/main.rs"));
@@ -431,19 +484,17 @@ mod tests {
 
     #[test]
     fn test_generate_documentation() {
-        let elements = vec![
-            CodeElement {
-                qualified_name: "src/main.rs".to_string(),
-                element_type: "file".to_string(),
-                name: "main.rs".to_string(),
-                file_path: "src/main.rs".to_string(),
-                line_start: 1,
-                line_end: 100,
-                language: "rust".to_string(),
-                parent_qualified: None,
-                metadata: json!({}),
-            }
-        ];
+        let elements = vec![CodeElement {
+            qualified_name: "src/main.rs".to_string(),
+            element_type: "file".to_string(),
+            name: "main.rs".to_string(),
+            file_path: "src/main.rs".to_string(),
+            line_start: 1,
+            line_end: 100,
+            language: "rust".to_string(),
+            parent_qualified: None,
+            metadata: json!({}),
+        }];
         let doc = generate_documentation("src/main.rs", &elements);
         assert!(doc.contains("src/main.rs"));
     }

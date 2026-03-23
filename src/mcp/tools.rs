@@ -27,6 +27,16 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
+                name: "get_dependents".to_string(),
+                description: "Get files depending on target".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "file": {"type": "string"}
+                    }
+                }),
+            },
+            ToolDefinition {
                 name: "get_impact_radius".to_string(),
                 description: "Get all files affected by change within N hops".to_string(),
                 input_schema: json!({
