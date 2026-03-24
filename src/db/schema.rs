@@ -1,9 +1,9 @@
 use std::path::Path;
-use surrealdb::engine::local::{Db, RocksDb};
+use surrealdb::engine::local::{Db, Mem};
 use surrealdb::Surreal;
 
-pub async fn init_db(db_path: &Path) -> Result<Surreal<Db>, Box<dyn std::error::Error>> {
-    let db = Surreal::new::<RocksDb>(db_path).await?;
+pub async fn init_db(_db_path: &Path) -> Result<Surreal<Db>, Box<dyn std::error::Error>> {
+    let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("leankg").use_db("codebase").await?;
 
     db.query(
