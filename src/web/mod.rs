@@ -22,6 +22,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[allow(dead_code)]
     pub async fn new(db_path: std::path::PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
             db_path,
@@ -29,6 +30,7 @@ impl AppState {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn init_db(&self) -> Result<(), Box<dyn std::error::Error>> {
         let db = db::init_db(&self.db_path).await?;
         let mut lock = self.db.write().await;
@@ -36,13 +38,13 @@ impl AppState {
         Ok(())
     }
 
-    pub async fn get_db(&self) -> Result<Surreal<Db>, Box<dyn std::error::Error>> {
+    pub async fn get_db(&self) -> Result<Surreal<Db>, Box<dyn std::error::Error + Send + Sync>> {
         let lock = self.db.read().await;
         lock.clone()
             .ok_or_else(|| "Database not initialized".into())
     }
 
-    pub async fn get_graph_engine(&self) -> Result<GraphEngine, Box<dyn std::error::Error>> {
+    pub async fn get_graph_engine(&self) -> Result<GraphEngine, Box<dyn std::error::Error + Send + Sync>> {
         let db = self.get_db().await?;
         Ok(GraphEngine::new(db))
     }
@@ -66,6 +68,7 @@ impl<T: serde::Serialize> IntoResponse for ApiResponse<T> {
     }
 }
 
+#[allow(dead_code)]
 pub async fn start_server(
     port: u16,
     db_path: std::path::PathBuf,
