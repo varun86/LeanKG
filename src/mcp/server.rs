@@ -92,13 +92,17 @@ impl ServerHandler for MCPServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::LATEST,
-            capabilities: ServerCapabilities::default(),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .build(),
             server_info: Implementation {
                 name: "leankg".to_string(),
                 version: "0.1.0".to_string(),
+                title: Some("LeanKG".to_string()),
+                description: Some("Lightweight knowledge graph for codebase understanding".to_string()),
                 ..Default::default()
             },
-            instructions: None,
+            instructions: Some("LeanKG - Lightweight knowledge graph for codebase understanding. Use tools to query code elements, dependencies, impact radius, and traceability.".to_string()),
         }
     }
 
