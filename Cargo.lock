@@ -1036,6 +1036,7 @@ dependencies = [
  "glob",
  "headers",
  "notify",
+ "parking_lot",
  "pulldown-cmark",
  "regex",
  "serde",

@@ -8,6 +8,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use parking_lot::Mutex;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
@@ -19,7 +20,7 @@ use tokio_tungstenite::{
 pub struct MCPServer {
     auth_config: Arc<RwLock<AuthConfig>>,
     db_path: std::path::PathBuf,
-    graph_engine: Option<GraphEngine>,
+    graph_engine: Arc<Mutex<Option<GraphEngine>>>,
 }
 
 impl std::fmt::Debug for MCPServer {
@@ -45,17 +46,24 @@ impl MCPServer {
         Self {
             auth_config: Arc::new(RwLock::new(AuthConfig::default())),
             db_path,
-            graph_engine: None,
+            graph_engine: Arc::new(Mutex::new(None)),
         }
     }
 
     fn get_graph_engine(&self) -> Result<GraphEngine, String> {
-        if let Some(ref ge) = self.graph_engine {
-            return Ok(ge.clone());
+        {
+            let guard = self.graph_engine.lock();
+            if let Some(ref ge) = *guard {
+                return Ok(ge.clone());
+            }
         }
         let db = init_db(&self.db_path)
             .map_err(|e| format!("Database error: {}", e))?;
         let ge = GraphEngine::new(db);
+        {
+            let mut guard = self.graph_engine.lock();
+            *guard = Some(ge.clone());
+        }
         Ok(ge)
     }
 
