@@ -105,23 +105,24 @@ impl MCPServer {
     }
 
     async fn auto_init_if_needed(&self) -> Result<(), String> {
-        let current_dir = std::env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
-        let leankg_exists = current_dir.join(".leankg").exists() || current_dir.join("leankg.yaml").exists();
+        let project_root = self.find_project_root()?;
+        
+        let leankg_exists = project_root.join(".leankg").exists() || project_root.join("leankg.yaml").exists();
 
         if leankg_exists {
-            tracing::info!("LeanKG project already initialized at {}", current_dir.display());
+            tracing::info!("LeanKG project already initialized at {}", project_root.display());
             return Ok(());
         }
 
-        tracing::info!("LeanKG not found, auto-initializing...");
+        tracing::info!("LeanKG not found, searching for project root...");
 
-        std::fs::create_dir_all(".leankg").map_err(|e| format!("Failed to create .leankg: {}", e))?;
+        std::fs::create_dir_all(project_root.join(".leankg")).map_err(|e| format!("Failed to create .leankg: {}", e))?;
         let config = crate::config::ProjectConfig::default();
         let config_yaml = serde_yaml::to_string(&config).map_err(|e| format!("Failed to serialize config: {}", e))?;
-        std::fs::write(current_dir.join(".leankg/leankg.yaml"), config_yaml)
+        std::fs::write(project_root.join(".leankg/leankg.yaml"), config_yaml)
             .map_err(|e| format!("Failed to write config: {}", e))?;
 
-        tracing::info!("Auto-init: Created .leankg/ and leankg.yaml");
+        tracing::info!("Auto-init: Created .leankg/ and leankg.yaml at {}", project_root.display());
 
         let db_path = self.db_path.clone();
         tokio::fs::create_dir_all(&db_path).await.map_err(|e| format!("Failed to create db path: {}", e))?;
@@ -150,6 +151,24 @@ impl MCPServer {
 
         tracing::info!("Auto-init complete");
         Ok(())
+    }
+
+    fn find_project_root(&self) -> Result<std::path::PathBuf, String> {
+        let current_dir = std::env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+        
+        for dir in current_dir.ancestors() {
+            if dir.join(".leankg").exists() || dir.join("leankg.yaml").exists() {
+                tracing::debug!("Found project at {}", dir.display());
+                return Ok(dir.to_path_buf());
+            }
+            if dir.join(".git").exists() {
+                tracing::debug!("Found git repo at {}, assuming project root", dir.display());
+                return Ok(dir.to_path_buf());
+            }
+        }
+        
+        tracing::debug!("No project markers found, using current dir: {}", current_dir.display());
+        Ok(current_dir)
     }
 
     async fn execute_tool(
