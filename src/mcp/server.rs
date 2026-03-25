@@ -6,7 +6,8 @@ use crate::mcp::tools::ToolRegistry;
 use crate::mcp::watcher::start_watcher;
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, ListToolsResult, Tool,
+    CallToolRequestParams, CallToolResult, Content, ListToolsResult, ServerCapabilities,
+    ServerInfo, Tool,
 };
 use rmcp::service::{serve_server, RoleServer};
 use rmcp::transport::stdio;
