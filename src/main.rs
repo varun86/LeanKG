@@ -397,11 +397,14 @@ fn generate_docs(db_path: &std::path::Path) -> Result<(), Box<dyn std::error::Er
 }
 
 fn install_mcp_config() -> Result<(), Box<dyn std::error::Error>> {
+    let exe_path = std::env::current_exe()
+        .map_err(|e| format!("Failed to get current exe path: {}", e))?;
+    
     let mcp_config = serde_json::json!({
         "mcpServers": {
             "leankg": {
-                "command": "leankg",
-                "args": ["serve"]
+                "command": exe_path.to_string_lossy().as_ref(),
+                "args": ["mcp-stdio"]
             }
         }
     });
