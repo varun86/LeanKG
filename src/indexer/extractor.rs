@@ -428,12 +428,16 @@ impl<'a> EntityExtractor<'a> {
                         } else {
                             format!("{}::{}", self.file_path, parent_name)
                         };
+                        let target_qualified = format!("{}::{}", self.file_path, name);
                         relationships.push(Relationship {
                             id: None,
                             source_qualified: source,
-                            target_qualified: name.to_string(),
+                            target_qualified: target_qualified.clone(),
                             rel_type: "calls".to_string(),
-                            metadata: serde_json::json!({}),
+                            metadata: serde_json::json!({
+                                "bare_name": name,
+                                "file_path": self.file_path,
+                            }),
                         });
                     }
                 }
