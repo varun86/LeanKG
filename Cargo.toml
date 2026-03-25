@@ -1,6 +1,6 @@
 [package]
 name = "leankg"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "Lightweight Knowledge Graph for AI-Assisted Development"
 license = "MIT"
@@ -51,5 +51,5 @@ async-trait = "0.1"
 tempfile = "3"
 
 [dependencies.getrandom]
-version = "0.2"
+version = "0.1.5"
 features = ["js"]
