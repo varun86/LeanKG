@@ -75,7 +75,11 @@ impl MCPServer {
                 return Ok(ge.clone());
             }
         }
-        let db = init_db(&self.db_path).map_err(|e| format!("Database error: {}", e))?;
+        let db_path = self.db_path.canonicalize()
+            .or_else(|_| std::env::current_dir().map(|d| d.join(&self.db_path)))
+            .map_err(|e| format!("Failed to resolve db path: {}", e))?;
+        tracing::debug!("Initializing database at: {}", db_path.display());
+        let db = init_db(&db_path).map_err(|e| format!("Database error: {}", e))?;
         let ge = GraphEngine::new(db);
         {
             let mut guard = self.graph_engine.lock();
