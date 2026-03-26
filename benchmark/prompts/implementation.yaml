@@ -1,0 +1,9 @@
+name: "Implementation Tasks"
+description: "Build new features"
+
+tasks:
+  - id: "impl-new-tool"
+    prompt: "Add a new MCP tool called mcp_hello that returns 'Hello, World!'"
+    expected:
+      - "src/mcp/tools.rs"
+      - "src/mcp/handler.rs"

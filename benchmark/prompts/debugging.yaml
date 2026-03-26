@@ -1,0 +1,8 @@
+name: "Debugging Tasks"
+description: "Trace bugs through code"
+
+tasks:
+  - id: "debug-init"
+    prompt: "Debug: Why does mcp_init fail when called twice?"
+    expected:
+      - "src/mcp/handler.rs"

@@ -1,0 +1,8 @@
+name: "Impact Analysis Tasks"
+description: "Find what breaks if X changes"
+
+tasks:
+  - id: "impact-handler"
+    prompt: "What breaks if I modify src/mcp/handler.rs?"
+    expected:
+      - "src/mcp/server.rs"
