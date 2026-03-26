@@ -104,11 +104,12 @@ get_call_graph({ function: "src/auth.rs::authenticate" })
 
 pub struct ToolHandler {
     graph_engine: GraphEngine,
+    db_path: std::path::PathBuf,
 }
 
 impl ToolHandler {
-    pub fn new(graph_engine: GraphEngine) -> Self {
-        Self { graph_engine }
+    pub fn new(graph_engine: GraphEngine, db_path: std::path::PathBuf) -> Self {
+        Self { graph_engine, db_path }
     }
 
     pub async fn execute_tool(&self, tool_name: &str, arguments: &Value) -> Result<Value, String> {
@@ -208,7 +209,7 @@ impl ToolHandler {
         let lang = args["lang"].as_str();
         let exclude = args["exclude"].as_str();
 
-        let db_path = std::path::PathBuf::from(".leankg");
+        let db_path = self.db_path.clone();
         tokio::fs::create_dir_all(&db_path).await.map_err(|e| format!("Failed to create .leankg: {}", e))?;
 
         let exclude_patterns: Vec<String> = exclude
@@ -265,7 +266,7 @@ impl ToolHandler {
     }
 
     fn mcp_status(&self, _args: &Value) -> Result<Value, String> {
-        let db_path = std::path::PathBuf::from(".leankg");
+        let db_path = &self.db_path;
 
         if !db_path.exists() {
             return Ok(json!({
@@ -274,12 +275,10 @@ impl ToolHandler {
             }));
         }
 
-        let db = crate::db::schema::init_db(&db_path).map_err(|e| format!("Database error: {}", e))?;
-
-        let graph_engine = crate::graph::GraphEngine::new(db.clone());
-        let elements = graph_engine.all_elements().map_err(|e| e.to_string())?;
-        let relationships = graph_engine.all_relationships().map_err(|e| e.to_string())?;
-        let annotations = crate::db::all_business_logic(&db).map_err(|e| e.to_string())?;
+        let db = self.graph_engine.db();
+        let elements = self.graph_engine.all_elements().map_err(|e| e.to_string())?;
+        let relationships = self.graph_engine.all_relationships().map_err(|e| e.to_string())?;
+        let annotations = crate::db::all_business_logic(db).map_err(|e| e.to_string())?;
 
         let files = elements.iter().filter(|e| e.element_type == "file").count();
         let functions = elements.iter().filter(|e| e.element_type == "function").count();
@@ -287,7 +286,7 @@ impl ToolHandler {
 
         Ok(json!({
             "initialized": true,
-            "database": ".leankg",
+            "database": db_path.to_string_lossy(),
             "elements": elements.len(),
             "relationships": relationships.len(),
             "files": files,
@@ -301,10 +300,7 @@ impl ToolHandler {
         let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
         let depth = args["depth"].as_u64().unwrap_or(3) as u32;
 
-        let db_path = std::path::PathBuf::from(".leankg");
-        let db = crate::db::schema::init_db(&db_path).map_err(|e| format!("Database error: {}", e))?;
-        let graph_engine = crate::graph::GraphEngine::new(db);
-        let analyzer = crate::graph::ImpactAnalyzer::new(&graph_engine);
+        let analyzer = crate::graph::ImpactAnalyzer::new(&self.graph_engine);
 
         let result = analyzer.calculate_impact_radius(file, depth).map_err(|e| e.to_string())?;
 

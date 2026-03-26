@@ -281,7 +281,7 @@ impl MCPServer {
         arguments: serde_json::Map<String, serde_json::Value>,
     ) -> Result<serde_json::Value, String> {
         let graph_engine = self.get_graph_engine()?;
-        let handler = ToolHandler::new(graph_engine);
+        let handler = ToolHandler::new(graph_engine, self.db_path.clone());
         let args_value = serde_json::Value::Object(arguments);
         handler.execute_tool(tool_name, &args_value).await
     }

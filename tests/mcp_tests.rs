@@ -154,7 +154,7 @@ mod handler_tests {
         let db_path = tmp.path().join("leankg.db");
         let db = init_db(db_path.as_path()).unwrap();
         let graph = GraphEngine::new(db);
-        (ToolHandler::new(graph), tmp)
+        (ToolHandler::new(graph, db_path), tmp)
     }
 
     #[tokio::test]
