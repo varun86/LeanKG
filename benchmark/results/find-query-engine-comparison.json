@@ -1,24 +1,24 @@
 {
   "overhead": {
     "time_delta": 0.0,
-    "token_delta": 66,
+    "token_delta": -857,
     "token_delta_percent": 0.0
   },
   "task": "find-query-engine",
   "with_leankg": {
     "build_time_seconds": 0.0,
-    "cached_tokens": 17152,
-    "input_tokens": 738,
+    "cached_tokens": 14976,
+    "input_tokens": 2201,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 17989
+    "total_tokens": 17290
   },
   "without_leankg": {
     "build_time_seconds": 0.0,
-    "cached_tokens": 17152,
-    "input_tokens": 616,
+    "cached_tokens": 13632,
+    "input_tokens": 4343,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 17923
+    "total_tokens": 18147
   }
 }

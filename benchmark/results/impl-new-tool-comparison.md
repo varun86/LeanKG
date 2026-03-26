@@ -1,14 +1,14 @@
 # Benchmark Comparison: impl-new-tool
 
 ## With LeanKG
-- Total Tokens: 18770
-- Input: 18770
+- Total Tokens: 11159
+- Input: 11159
 - Cached: 0
 
 ## Without LeanKG
-- Total Tokens: 18587
-- Input: 409
+- Total Tokens: 18604
+- Input: 411
 - Cached: 18048
 
 ## Overhead
-- Token Delta: 183
+- Token Delta: -7445

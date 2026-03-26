@@ -1,14 +1,14 @@
 # Benchmark Comparison: impl-search-enhance
 
 ## With LeanKG
-- Total Tokens: 16825
-- Input: 302
-- Cached: 16384
+- Total Tokens: 16817
+- Input: 1483
+- Cached: 15168
 
 ## Without LeanKG
-- Total Tokens: 17365
-- Input: 197
-- Cached: 17024
+- Total Tokens: 18321
+- Input: 454
+- Cached: 17728
 
 ## Overhead
-- Token Delta: -540
+- Token Delta: -1504

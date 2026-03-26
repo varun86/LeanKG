@@ -1,16 +1,14 @@
 # Benchmark Comparison: impact-handler-change
 
 ## With LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 36112
+- Input: 2155
+- Cached: 33472
 
 ## Without LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 27097
+- Input: 463
+- Cached: 26048
 
 ## Overhead
-- Token Delta: 0
-- Token Delta %: 0%
-- Time Delta: 0s
+- Token Delta: 9015

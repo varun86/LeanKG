@@ -1,5 +1,58 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RelationshipType {
+    Imports,
+    Calls,
+    References,
+    DocumentedBy,
+    TestedBy,
+    Tests,
+    Contains,
+    Defines,
+    Implements,
+    Implementations,
+}
+
+impl RelationshipType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RelationshipType::Imports => "imports",
+            RelationshipType::Calls => "calls",
+            RelationshipType::References => "references",
+            RelationshipType::DocumentedBy => "documented_by",
+            RelationshipType::TestedBy => "tested_by",
+            RelationshipType::Tests => "tests",
+            RelationshipType::Contains => "contains",
+            RelationshipType::Defines => "defines",
+            RelationshipType::Implements => "implements",
+            RelationshipType::Implementations => "implementations",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "imports" => Some(RelationshipType::Imports),
+            "calls" => Some(RelationshipType::Calls),
+            "references" => Some(RelationshipType::References),
+            "documented_by" => Some(RelationshipType::DocumentedBy),
+            "tested_by" => Some(RelationshipType::TestedBy),
+            "tests" => Some(RelationshipType::Tests),
+            "contains" => Some(RelationshipType::Contains),
+            "defines" => Some(RelationshipType::Defines),
+            "implements" => Some(RelationshipType::Implements),
+            "implementations" => Some(RelationshipType::Implementations),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for RelationshipType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeElement {
     pub qualified_name: String,
@@ -103,5 +156,28 @@ mod tests {
             metadata: serde_json::json!({}),
         };
         assert_eq!(rel.rel_type, "imports");
+    }
+
+    #[test]
+    fn test_relationship_type_display() {
+        assert_eq!(RelationshipType::Imports.as_str(), "imports");
+        assert_eq!(
+            RelationshipType::Implementations.as_str(),
+            "implementations"
+        );
+        assert_eq!(format!("{}", RelationshipType::Calls), "calls");
+    }
+
+    #[test]
+    fn test_relationship_type_from_str() {
+        assert_eq!(
+            RelationshipType::from_str("imports"),
+            Some(RelationshipType::Imports)
+        );
+        assert_eq!(
+            RelationshipType::from_str("implementations"),
+            Some(RelationshipType::Implementations)
+        );
+        assert_eq!(RelationshipType::from_str("unknown"), None);
     }
 }

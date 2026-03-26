@@ -1,24 +1,24 @@
 {
   "overhead": {
     "time_delta": 0.0,
-    "token_delta": -540,
+    "token_delta": -1504,
     "token_delta_percent": 0.0
   },
   "task": "impl-search-enhance",
   "with_leankg": {
     "build_time_seconds": 0.0,
-    "cached_tokens": 16384,
-    "input_tokens": 302,
+    "cached_tokens": 15168,
+    "input_tokens": 1483,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 16825
+    "total_tokens": 16817
   },
   "without_leankg": {
     "build_time_seconds": 0.0,
-    "cached_tokens": 17024,
-    "input_tokens": 197,
+    "cached_tokens": 17728,
+    "input_tokens": 454,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 17365
+    "total_tokens": 18321
   }
 }

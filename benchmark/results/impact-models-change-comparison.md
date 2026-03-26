@@ -1,16 +1,14 @@
 # Benchmark Comparison: impact-models-change
 
 ## With LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 17734
+- Input: 2297
+- Cached: 14976
 
 ## Without LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 17836
+- Input: 2542
+- Cached: 14781
 
 ## Overhead
-- Token Delta: 0
-- Token Delta %: 0%
-- Time Delta: 0s
+- Token Delta: -102
