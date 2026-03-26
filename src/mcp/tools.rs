@@ -147,7 +147,8 @@ impl ToolRegistry {
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string"}
+                        "query": {"type": "string"},
+                        "limit": {"type": "integer", "description": "Maximum number of results to return (default: 100)"}
                     }
                 }),
             },
@@ -253,6 +254,14 @@ impl ToolRegistry {
                     "properties": {
                         "file": {"type": "string"}
                     }
+                }),
+            },
+            ToolDefinition {
+                name: "mcp_hello".to_string(),
+                description: "Returns 'Hello, World!'".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
                 }),
             },
         ]

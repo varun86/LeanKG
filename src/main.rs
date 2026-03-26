@@ -186,8 +186,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let db_path = project_path.join(".leankg");
             find_by_domain(&domain, &db_path)?;
         }
-        cli::CLICommand::Benchmark { category } => {
-            benchmark::run(category)?;
+        cli::CLICommand::Benchmark { category, cli } => {
+            let cli_tool = match cli.as_str() {
+                "opencode" => benchmark::CliTool::OpenCode,
+                "gemini" => benchmark::CliTool::Gemini,
+                "kilo" | _ => benchmark::CliTool::Kilo,
+            };
+            benchmark::run(category, cli_tool)?;
         }
     }
 

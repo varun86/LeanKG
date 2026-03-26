@@ -1,20 +1,24 @@
 {
   "overhead": {
     "time_delta": 0.0,
-    "token_delta": 0,
+    "token_delta": -540,
     "token_delta_percent": 0.0
   },
   "task": "impl-search-enhance",
   "with_leankg": {
     "build_time_seconds": 0.0,
+    "cached_tokens": 16384,
+    "input_tokens": 302,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 0
+    "total_tokens": 16825
   },
   "without_leankg": {
     "build_time_seconds": 0.0,
+    "cached_tokens": 17024,
+    "input_tokens": 197,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 0
+    "total_tokens": 17365
   }
 }

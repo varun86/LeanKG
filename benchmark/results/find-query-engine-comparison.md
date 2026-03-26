@@ -1,16 +1,14 @@
 # Benchmark Comparison: find-query-engine
 
 ## With LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 17989
+- Input: 738
+- Cached: 17152
 
 ## Without LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 17923
+- Input: 616
+- Cached: 17152
 
 ## Overhead
-- Token Delta: 0
-- Token Delta %: 0%
-- Time Delta: 0s
+- Token Delta: 66

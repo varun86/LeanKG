@@ -1,20 +1,24 @@
 {
   "overhead": {
     "time_delta": 0.0,
-    "token_delta": 0,
+    "token_delta": 1,
     "token_delta_percent": 0.0
   },
   "task": "find-extractor",
   "with_leankg": {
     "build_time_seconds": 0.0,
+    "cached_tokens": 14781,
+    "input_tokens": 9188,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 0
+    "total_tokens": 24284
   },
   "without_leankg": {
     "build_time_seconds": 0.0,
+    "cached_tokens": 15104,
+    "input_tokens": 8932,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 0
+    "total_tokens": 24283
   }
 }

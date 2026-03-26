@@ -131,5 +131,8 @@ pub enum CLICommand {
         /// Specific category to run (optional)
         #[arg(long)]
         category: Option<String>,
+        /// CLI tool to use: opencode, gemini, or kilo (default: kilo)
+        #[arg(long, default_value = "kilo")]
+        cli: String,
     },
 }

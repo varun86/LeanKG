@@ -139,6 +139,7 @@ impl ToolHandler {
             "get_doc_tree" => self.get_doc_tree(arguments),
             "get_code_tree" => self.get_code_tree(arguments),
             "find_related_docs" => self.find_related_docs(arguments),
+            "mcp_hello" => self.mcp_hello(arguments),
             _ => Err(format!("Unknown tool: {}", tool_name)),
         }
     }
@@ -293,6 +294,12 @@ impl ToolHandler {
             "functions": functions,
             "classes": classes,
             "annotations": annotations.len()
+        }))
+    }
+
+    fn mcp_hello(&self, _args: &Value) -> Result<Value, String> {
+        Ok(json!({
+            "message": "Hello, World!"
         }))
     }
 
@@ -546,6 +553,7 @@ impl ToolHandler {
 
     fn search_code(&self, args: &Value) -> Result<Value, String> {
         let query = args["query"].as_str().ok_or("Missing 'query' parameter")?;
+        let limit = args["limit"].as_i64().unwrap_or(100) as usize;
 
         let elements = self
             .graph_engine
@@ -560,7 +568,7 @@ impl ToolHandler {
                     || e.qualified_name.to_lowercase().contains(&query_lower)
                     || e.element_type.to_lowercase().contains(&query_lower)
             })
-            .take(100)
+            .take(limit)
             .map(|e| {
                 json!({
                     "qualified_name": e.qualified_name,

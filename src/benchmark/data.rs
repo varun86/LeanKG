@@ -5,6 +5,8 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkResult {
     pub total_tokens: u32,
+    pub input_tokens: u32,
+    pub cached_tokens: u32,
     pub token_percent: f32,
     pub build_time_seconds: f32,
     pub success: bool,

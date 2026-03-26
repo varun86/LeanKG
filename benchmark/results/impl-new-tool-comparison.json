@@ -1,20 +1,24 @@
 {
   "overhead": {
     "time_delta": 0.0,
-    "token_delta": 0,
+    "token_delta": 183,
     "token_delta_percent": 0.0
   },
   "task": "impl-new-tool",
   "with_leankg": {
     "build_time_seconds": 0.0,
+    "cached_tokens": 0,
+    "input_tokens": 18770,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 0
+    "total_tokens": 18770
   },
   "without_leankg": {
     "build_time_seconds": 0.0,
+    "cached_tokens": 18048,
+    "input_tokens": 409,
     "success": true,
     "token_percent": 0.0,
-    "total_tokens": 0
+    "total_tokens": 18587
   }
 }

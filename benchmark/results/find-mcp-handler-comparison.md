@@ -1,16 +1,14 @@
 # Benchmark Comparison: find-mcp-handler
 
 ## With LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 18967
+- Input: 3779
+- Cached: 15040
 
 ## Without LeanKG
-- Tokens: 0
-- Token %: 0%
-- Time: 0s
+- Total Tokens: 25849
+- Input: 10482
+- Cached: 15168
 
 ## Overhead
-- Token Delta: 0
-- Token Delta %: 0%
-- Time Delta: 0s
+- Token Delta: -6882
