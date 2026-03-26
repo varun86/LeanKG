@@ -126,4 +126,10 @@ pub enum CLICommand {
         /// Business domain (e.g., authentication, validation)
         domain: String,
     },
+    /// Run benchmark comparison
+    Benchmark {
+        /// Specific category to run (optional)
+        #[arg(long)]
+        category: Option<String>,
+    },
 }
