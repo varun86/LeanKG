@@ -375,69 +375,45 @@ pub async fn graph() -> axum::response::Html<String> {
                     'struct': '#1565c0'
                 };
                 
-                const originalIdCount = {};
-                data.nodes.forEach(n => { originalIdCount[n.id] = (originalIdCount[n.id] || 0) + 1; });
-                
-                let nodeInstanceCount = {};
-                const nodeIdxToUniqueId = data.nodes.map((n, idx) => {
-                    if (originalIdCount[n.id] === 1) {
-                        return n.id;
-                    }
-                    if (!nodeInstanceCount[n.id]) nodeInstanceCount[n.id] = 0;
-                    nodeInstanceCount[n.id]++;
-                    return n.id + '_' + nodeInstanceCount[n.id];
-                });
-                
-                let edgeSrcInstanceCount = {};
-                let edgeTgtInstanceCount = {};
-                
-                const graphEdges = data.edges.map((e, idx) => {
-                    let srcUniqueId, tgtUniqueId;
-                    
-                    if (originalIdCount[e.source] === 1) {
-                        srcUniqueId = e.source;
-                    } else {
-                        if (!edgeSrcInstanceCount[e.source]) edgeSrcInstanceCount[e.source] = 0;
-                        edgeSrcInstanceCount[e.source]++;
-                        srcUniqueId = e.source + '_' + edgeSrcInstanceCount[e.source];
-                    }
-                    
-                    if (originalIdCount[e.target] === 1) {
-                        tgtUniqueId = e.target;
-                    } else {
-                        if (!edgeTgtInstanceCount[e.target]) edgeTgtInstanceCount[e.target] = 0;
-                        edgeTgtInstanceCount[e.target]++;
-                        tgtUniqueId = e.target + '_' + edgeTgtInstanceCount[e.target];
-                    }
-                    
-                    return {
-                        id: 'edge_' + idx,
-                        source: srcUniqueId,
-                        target: tgtUniqueId,
-                        size: 1
-                    };
-                });
-                
-                const validNodeIds = new Set(nodeIdxToUniqueId);
-                const finalEdges = graphEdges.filter(e => 
-                    validNodeIds.has(e.source) && validNodeIds.has(e.target)
-                );
-                
                 const nodeCount = data.nodes.length;
                 const maxDim = Math.max(100, Math.sqrt(nodeCount) * 8);
                 
-                const nodeIndexMap = {};
-                data.nodes.forEach((n, idx) => { nodeIndexMap[n.id] = idx; });
-                
-                const parentMap = {};
-                const childMap = {};
-                finalEdges.forEach(e => {
-                    if (!childMap[e.source]) childMap[e.source] = [];
-                    childMap[e.source].push(e.target);
-                    parentMap[e.target] = e.source;
+                const edgeNodeIds = new Set();
+                data.edges.forEach(e => {
+                    edgeNodeIds.add(e.source);
+                    edgeNodeIds.add(e.target);
                 });
                 
-                const rootNodes = data.nodes.filter(n => !parentMap[n.id]);
+                const nodeSeen = new Set();
+                const connectedNodes = [];
+                data.nodes.forEach(n => {
+                    if (edgeNodeIds.has(n.id) && !nodeSeen.has(n.id)) {
+                        nodeSeen.add(n.id);
+                        connectedNodes.push(n);
+                    }
+                });
+                const connectedNodeIds = new Set(connectedNodes.map(n => n.id));
+                const orphanCount = nodeCount - connectedNodes.length;
+                console.log('Graph: ' + connectedNodes.length + ' nodes with edges, hiding ' + orphanCount + ' orphan nodes');
+                
+                const finalEdges = data.edges.filter(e => 
+                    connectedNodeIds.has(e.source) && connectedNodeIds.has(e.target)
+                );
+                
+                const connectedNodeIndexMap = {};
+                connectedNodes.forEach((n, idx) => { connectedNodeIndexMap[n.id] = idx; });
+                
+                const parentMapConnected = {};
+                const childMapConnected = {};
+                finalEdges.forEach(e => {
+                    if (connectedNodeIds.has(e.source) && connectedNodeIds.has(e.target)) {
+                        if (!childMapConnected[e.source]) childMapConnected[e.source] = [];
+                        childMapConnected[e.source].push(e.target);
+                        parentMapConnected[e.target] = e.source;
+                    }
+                });
+                
+                const connectedRootNodes = connectedNodes.filter(n => !parentMapConnected[n.id]).map(n => n.id);
                 const positioned = {};
                 const inProgress = {};
                 
@@ -445,55 +421,54 @@ pub async fn graph() -> axum::response::Html<String> {
                     if (positioned[nodeId]) return positioned[nodeId];
                     if (inProgress[nodeId]) return { x: (Math.random() - 0.5) * maxDim, y: (Math.random() - 0.5) * maxDim };
                     
-                    const idx = nodeIndexMap[nodeId];
-                    if (idx === undefined) return { x: 0, y: 0 };
+                    const idx = connectedNodeIndexMap[nodeId];
+                    if (idx === undefined) return { x: (Math.random() - 0.5) * maxDim, y: (Math.random() - 0.5) * maxDim };
                     
                     const cachedPos = nodePositionCache[nodeId];
-                    if (cachedPos) {
+                    if (cachedPos && typeof cachedPos.x === 'number' && typeof cachedPos.y === 'number') {
                         positioned[nodeId] = cachedPos;
                         return cachedPos;
                     }
                     
                     inProgress[nodeId] = true;
                     
-                    const children = childMap[nodeId] || [];
+                    const children = childMapConnected[nodeId] || [];
                     let cx = 0, cy = 0, childCount = 0;
-                    if (children.length > 0) {
-                        children.forEach(c => {
-                            if (!inProgress[c]) {
-                                const childPos = getOrPosition(c, depth + 1);
-                                cx += childPos.x;
-                                cy += childPos.y;
-                                childCount++;
-                            }
-                        });
-                    }
+                    children.forEach(c => {
+                        if (!inProgress[c] && positioned[c]) {
+                            cx += positioned[c].x;
+                            cy += positioned[c].y;
+                            childCount++;
+                        }
+                    });
                     
-                    const parentId = parentMap[nodeId];
-                    let px = 0, py = 0;
+                    const parentId = parentMapConnected[nodeId];
+                    let px = (Math.random() - 0.5) * maxDim;
+                    let py = (Math.random() - 0.5) * maxDim;
+                    
                     if (parentId && positioned[parentId]) {
                         px = positioned[parentId].x;
                         py = positioned[parentId].y;
-                    } else if (rootNodes.indexOf(data.nodes[idx]) >= 0) {
-                        const rootIdx = rootNodes.indexOf(data.nodes[idx]);
-                        const angle = (2 * Math.PI * rootIdx) / Math.max(rootNodes.length, 1);
-                        px = Math.cos(angle) * maxDim * 0.7;
-                        py = Math.sin(angle) * maxDim * 0.7;
-                    } else if (childCount > 0) {
-                        px = cx / childCount;
-                        py = cy / childCount;
                     } else {
-                        px = (Math.random() - 0.5) * maxDim;
-                        py = (Math.random() - 0.5) * maxDim;
+                        const rootIdx = connectedRootNodes.indexOf(nodeId);
+                        if (rootIdx >= 0) {
+                            const angle = (2 * Math.PI * rootIdx) / Math.max(connectedRootNodes.length, 1);
+                            px = Math.cos(angle) * maxDim * 0.7;
+                            py = Math.sin(angle) * maxDim * 0.7;
+                        }
                     }
                     
-                    const jitter = Math.max(10, maxDim * 0.1);
-                    let x = px + (Math.random() - 0.5) * jitter;
-                    let y = py + (Math.random() - 0.5) * jitter;
+                    let x = px + (Math.random() - 0.5) * maxDim * 0.2;
+                    let y = py + (Math.random() - 0.5) * maxDim * 0.2;
                     
-                    if (childCount > 0 && px !== 0) {
-                        x = px * 0.4 + (cx / childCount) * 0.6;
-                        y = py * 0.4 + (cy / childCount) * 0.6;
+                    if (childCount > 0) {
+                        x = px * 0.3 + (cx / childCount) * 0.7;
+                        y = py * 0.3 + (cy / childCount) * 0.7;
+                    }
+                    
+                    if (isNaN(x) || isNaN(y)) {
+                        x = (Math.random() - 0.5) * maxDim;
+                        y = (Math.random() - 0.5) * maxDim;
                     }
                     
                     delete inProgress[nodeId];
@@ -501,17 +476,21 @@ pub async fn graph() -> axum::response::Html<String> {
                     return { x, y };
                 };
                 
-                data.nodes.forEach((n, idx) => {
+                connectedNodes.forEach(n => {
                     if (!positioned[n.id]) {
                         getOrPosition(n.id, 0);
                     }
                 });
                 
                 const graphData = {
-                    nodes: data.nodes.map((n, idx) => {
+                    nodes: connectedNodes.map(n => {
                         const pos = positioned[n.id] || { x: (Math.random() - 0.5) * maxDim, y: (Math.random() - 0.5) * maxDim };
+                        if (isNaN(pos.x) || isNaN(pos.y)) {
+                            pos.x = (Math.random() - 0.5) * maxDim;
+                            pos.y = (Math.random() - 0.5) * maxDim;
+                        }
                         return {
-                            id: nodeIdxToUniqueId[idx],
+                            id: n.id,
                             label: n.label,
                             x: pos.x,
                             y: pos.y,
@@ -526,7 +505,7 @@ pub async fn graph() -> axum::response::Html<String> {
                     }))
                 };
                 
-                data.nodes.forEach((n, idx) => {
+                connectedNodes.forEach(n => {
                     const pos = positioned[n.id];
                     if (pos) nodePositionCache[n.id] = pos;
                 });
@@ -556,16 +535,21 @@ pub async fn graph() -> axum::response::Html<String> {
                 }
                 
                 sig = new Sigma(graph, container, {
-                    renderLabels: nodeCount < 200,
+                    renderLabels: false,
                     labelFont: 'Arial',
-                    labelSize: 10,
+                    labelSize: 12,
                     labelColor: '#333333',
-                    labelRenderedSizeThreshold: 6,
+                    labelRenderedSizeThreshold: 12,
                     defaultNodeColor: '#666',
-                    defaultEdgeColor: 'rgba(100,100,100,0.3)',
+                    defaultEdgeColor: 'rgba(150,150,150,0.5)',
                     defaultNodeType: 'circle',
-                    minCameraRatio: 0.1,
-                    maxCameraRatio: 10
+                    defaultEdgeType: 'arrow',
+                    minCameraRatio: 0.01,
+                    maxCameraRatio: 100,
+                    hideEdgesOnMove: true,
+                    hideLabelsOnMove: true,
+                    enableEdgeClickEvents: false,
+                    enableNodeClickEvents: true,
                 });
                 
                 window.sig = sig;
@@ -573,7 +557,19 @@ pub async fn graph() -> axum::response::Html<String> {
                 sig.on('clickNode', function(e) {
                     const node = e.node;
                     const attrs = graph.getNodeAttributes(node);
-                    alert('Element: ' + attrs.label + '\nType: ' + attrs.elementType + '\nID: ' + node);
+                    const edges = graph.edges();
+                    const connectedEdges = edges.filter(eid => {
+                        const [src, tgt] = graph.extremities(eid);
+                        return src === node || tgt === node;
+                    });
+                    let edgeInfo = '';
+                    connectedEdges.slice(0, 5).forEach(eid => {
+                        const [src, tgt] = graph.extremities(eid);
+                        const other = src === node ? tgt : src;
+                        const otherLabel = graph.getNodeAttributes(other, 'label') || other;
+                        edgeInfo += '\n- ' + (src === node ? '-> ' : '<- ') + otherLabel;
+                    });
+                    alert('Element: ' + attrs.label + '\nType: ' + attrs.elementType + '\nConnections:' + (edgeInfo || '\n(none)') + '\n\nID: ' + node);
                 });
             }
             
