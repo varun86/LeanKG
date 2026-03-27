@@ -776,8 +776,12 @@ pub async fn api_graph_data(State(state): State<AppState>) -> impl IntoResponse 
         Ok(g) => g.all_elements().map_err(|e| e.to_string()),
         Err(e) => Err(e.to_string()),
     };
+
     let relationships_result: Result<Vec<_>, String> = match state.get_graph_engine().await {
-        Ok(g) => g.all_relationships().map_err(|e| e.to_string()),
+        Ok(g) => {
+            let _ = g.resolve_call_edges();
+            g.all_relationships().map_err(|e| e.to_string())
+        }
         Err(e) => Err(e.to_string()),
     };
     match (elements_result, relationships_result) {
@@ -794,7 +798,7 @@ pub async fn api_graph_data(State(state): State<AppState>) -> impl IntoResponse 
             let node_ids: std::collections::HashSet<_> = nodes.iter().map(|n| n.id.clone()).collect();
             let edges: Vec<GraphEdge> = relationships
                 .iter()
-                .filter(|r| node_ids.contains(&r.source_qualified) && node_ids.contains(&r.target_qualified))
+                .filter(|r| node_ids.contains(&r.source_qualified))
                 .map(|r| GraphEdge {
                     source: r.source_qualified.clone(),
                     target: r.target_qualified.clone(),
@@ -822,7 +826,10 @@ pub async fn api_export_graph(State(state): State<AppState>) -> impl IntoRespons
         Err(e) => Err(e.to_string()),
     };
     let relationships_result: Result<Vec<_>, String> = match state.get_graph_engine().await {
-        Ok(g) => g.all_relationships().map_err(|e| e.to_string()),
+        Ok(g) => {
+            let _ = g.resolve_call_edges();
+            g.all_relationships().map_err(|e| e.to_string())
+        }
         Err(e) => Err(e.to_string()),
     };
     match (elements_result, relationships_result) {
@@ -839,7 +846,7 @@ pub async fn api_export_graph(State(state): State<AppState>) -> impl IntoRespons
             let node_ids: std::collections::HashSet<_> = nodes.iter().map(|n| n.id.clone()).collect();
             let edges: Vec<GraphEdge> = relationships
                 .iter()
-                .filter(|r| node_ids.contains(&r.source_qualified) && node_ids.contains(&r.target_qualified))
+                .filter(|r| node_ids.contains(&r.source_qualified))
                 .map(|r| GraphEdge {
                     source: r.source_qualified.clone(),
                     target: r.target_qualified.clone(),
