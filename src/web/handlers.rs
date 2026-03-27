@@ -245,6 +245,7 @@ pub async fn graph() -> axum::response::Html<String> {
             let currentFilter = 'all';
             const docTypes = ['document', 'doc_section'];
             const funcTypes = ['function', 'class', 'struct'];
+            const nodePositionCache = {};
             
             function isTestElement(node) {
                 const qn = node.id.toLowerCase();
@@ -257,9 +258,9 @@ pub async fn graph() -> axum::response::Html<String> {
             function filterTestElements(data) {
                 const nodeIds = new Set();
                 data.nodes.forEach(n => { if (!isTestElement(n)) nodeIds.add(n.id); });
-                const filteredEdges = data.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
                 const filteredNodes = data.nodes.filter(n => nodeIds.has(n.id));
-                return { nodes: filteredNodes, edges: filteredEdges };
+                const filteredEdges = data.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+                return { nodes: filteredNodes.map(n => ({...n})), edges: filteredEdges.map(e => ({...e})) };
             }
             
             async function loadGraph() {
@@ -295,27 +296,27 @@ pub async fn graph() -> axum::response::Html<String> {
                 const edgeNodeIds = new Set();
                 
                 if (currentFilter === 'all') {
-                    data.nodes.forEach(n => { filteredNodes.push(n); nodeIds.add(n.id); });
-                    data.edges.forEach(e => { if (nodeIds.has(e.source) && nodeIds.has(e.target)) { filteredEdges.push(e); edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); } });
+                    data.nodes.forEach(n => { filteredNodes.push({...n}); nodeIds.add(n.id); });
+                    data.edges.forEach(e => { if (nodeIds.has(e.source) && nodeIds.has(e.target)) { filteredEdges.push({...e}); edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); } });
                     const finalNodes = filteredNodes.filter(n => edgeNodeIds.has(n.id));
                     return { nodes: finalNodes, edges: filteredEdges };
                 } else if (currentFilter === 'document') {
-                    data.nodes.forEach(n => { if (docTypes.includes(n.element_type)) { filteredNodes.push(n); nodeIds.add(n.id); } });
-                    data.edges.forEach(e => { if (nodeIds.has(e.target)) { filteredEdges.push(e); edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); } });
-                    const relatedNodes = data.nodes.filter(n => edgeNodeIds.has(n.id));
-                    return { nodes: relatedNodes, edges: filteredEdges };
+                    data.nodes.forEach(n => { if (docTypes.includes(n.element_type)) { filteredNodes.push({...n}); nodeIds.add(n.id); } });
+                    data.edges.forEach(e => { if (nodeIds.has(e.source) && nodeIds.has(e.target)) { filteredEdges.push({...e}); edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); } });
+                    const finalNodes = filteredNodes.filter(n => edgeNodeIds.has(n.id));
+                    return { nodes: finalNodes, edges: filteredEdges };
                 } else if (currentFilter === 'function') {
-                    data.nodes.forEach(n => { if (funcTypes.includes(n.element_type)) { filteredNodes.push(n); nodeIds.add(n.id); } });
-                    data.edges.forEach(e => { if (nodeIds.has(e.source) || nodeIds.has(e.target)) { filteredEdges.push(e); edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); } });
-                    const relatedNodes = data.nodes.filter(n => edgeNodeIds.has(n.id));
-                    return { nodes: relatedNodes, edges: filteredEdges };
+                    data.nodes.forEach(n => { if (funcTypes.includes(n.element_type)) { filteredNodes.push({...n}); nodeIds.add(n.id); } });
+                    data.edges.forEach(e => { if (nodeIds.has(e.source) && nodeIds.has(e.target)) { filteredEdges.push({...e}); edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); } });
+                    const finalNodes = filteredNodes.filter(n => edgeNodeIds.has(n.id));
+                    return { nodes: finalNodes, edges: filteredEdges };
                 }
-                return { nodes: filteredNodes, edges: filteredEdges };
+                return { nodes: filteredNodes.map(n => ({...n})), edges: filteredEdges.map(e => ({...e})) };
             }
             
             function applyLimitAndOrphan(data) {
                 if (data.nodes.length <= 500 && data.edges.length <= 1000) {
-                    return data;
+                    return { nodes: data.nodes.map(n => ({...n})), edges: data.edges.map(e => ({...e})) };
                 }
                 const nodeConnectCount = {};
                 data.edges.forEach(e => { 
@@ -328,22 +329,28 @@ pub async fn graph() -> axum::response::Html<String> {
                 const topNodeIds = new Set(sortedNodes.slice(0, 500).map(n => n.id));
                 const filteredNodes = data.nodes.filter(n => topNodeIds.has(n.id));
                 const filteredEdges = data.edges.filter(e => topNodeIds.has(e.source) && topNodeIds.has(e.target)).slice(0, 1000);
-                return { nodes: filteredNodes, edges: filteredEdges };
+                return { nodes: filteredNodes.map(n => ({...n})), edges: filteredEdges.map(e => ({...e})) };
             }
             
             function initGraph(fullData) {
+                if (!fullData || !fullData.nodes || !fullData.edges) {
+                    document.getElementById('graph-container').innerHTML = '<div class="error">Invalid graph data.</div>';
+                    return;
+                }
+                
+                if (sig) {
+                    try { sig.kill(); } catch(e) { /* ignore */ }
+                    sig = null;
+                }
+                
                 const filtered = getFilteredData(fullData);
                 const data = applyLimitAndOrphan(filtered);
                 const container = document.getElementById('graph-container');
                 container.innerHTML = '';
                 
                 if (data.nodes.length === 0) {
-                    container.innerHTML = '<div class="error">No graph data available.</div>';
+                    container.innerHTML = '<div class="error">No nodes match this filter.</div>';
                     return;
-                }
-                
-                if (sig) {
-                    sig.kill();
                 }
                 
                 const colors = {
@@ -356,86 +363,73 @@ pub async fn graph() -> axum::response::Html<String> {
                     'struct': '#1565c0'
                 };
                 
-                const idCounts = {};
-                data.nodes.forEach(n => { idCounts[n.id] = (idCounts[n.id] || 0) + 1; });
+                const originalIdCount = {};
+                data.nodes.forEach(n => { originalIdCount[n.id] = (originalIdCount[n.id] || 0) + 1; });
                 
-                const nodeCounter = {};
-                const graphNodes = data.nodes.map((n, idx) => {
-                    if (!idCounts[n.id]) idCounts[n.id] = 0;
-                    if (idCounts[n.id] === 1) {
-                        return { id: n.id, originalId: n.id, idx };
+                let nodeInstanceCount = {};
+                const nodeIdxToUniqueId = data.nodes.map((n, idx) => {
+                    if (originalIdCount[n.id] === 1) {
+                        return n.id;
                     }
-                    if (!nodeCounter[n.id]) nodeCounter[n.id] = 0;
-                    nodeCounter[n.id]++;
-                    return { id: n.id + '_' + nodeCounter[n.id], originalId: n.id, idx };
+                    if (!nodeInstanceCount[n.id]) nodeInstanceCount[n.id] = 0;
+                    nodeInstanceCount[n.id]++;
+                    return n.id + '_' + nodeInstanceCount[n.id];
                 });
                 
-                const edgeCounter = {};
-                const edgeMap = new Map();
-                data.edges.forEach((e, edgeIdx) => {
-                    if (!edgeCounter[e.source]) edgeCounter[e.source] = 0;
-                    if (!edgeCounter[e.target]) edgeCounter[e.target] = 0;
-                    edgeCounter[e.source]++;
-                    edgeCounter[e.target]++;
-                    const key = e.source + '|' + e.target;
-                    if (!edgeMap.has(key)) edgeMap.set(key, []);
-                    edgeMap.get(key).push(edgeIdx);
-                });
+                let edgeSrcInstanceCount = {};
+                let edgeTgtInstanceCount = {};
                 
-                const graphEdges = [];
-                const usedEdgeInstances = {};
-                data.edges.forEach((e, edgeIdx) => {
-                    let srcNodeId, tgtNodeId;
+                const graphEdges = data.edges.map((e, idx) => {
+                    let srcUniqueId, tgtUniqueId;
                     
-                    const srcCount = idCounts[e.source] || 0;
-                    const tgtCount = idCounts[e.target] || 0;
-                    
-                    if (srcCount <= 1) {
-                        srcNodeId = e.source;
+                    if (originalIdCount[e.source] === 1) {
+                        srcUniqueId = e.source;
                     } else {
-                        const srcInstances = graphNodes.filter(n => n.originalId === e.source);
-                        const srcUsed = usedEdgeInstances[e.source] || 0;
-                        srcNodeId = srcInstances[Math.min(srcUsed, srcInstances.length - 1)]?.id || e.source;
+                        if (!edgeSrcInstanceCount[e.source]) edgeSrcInstanceCount[e.source] = 0;
+                        edgeSrcInstanceCount[e.source]++;
+                        srcUniqueId = e.source + '_' + edgeSrcInstanceCount[e.source];
                     }
                     
-                    if (tgtCount <= 1) {
-                        tgtNodeId = e.target;
+                    if (originalIdCount[e.target] === 1) {
+                        tgtUniqueId = e.target;
                     } else {
-                        const tgtInstances = graphNodes.filter(n => n.originalId === e.target);
-                        const tgtUsed = usedEdgeInstances[e.target + '_tgt'] || 0;
-                        tgtNodeId = tgtInstances[Math.min(tgtUsed, tgtInstances.length - 1)]?.id || e.target;
-                        usedEdgeInstances[e.target + '_tgt'] = (usedEdgeInstances[e.target + '_tgt'] || 0) + 1;
+                        if (!edgeTgtInstanceCount[e.target]) edgeTgtInstanceCount[e.target] = 0;
+                        edgeTgtInstanceCount[e.target]++;
+                        tgtUniqueId = e.target + '_' + edgeTgtInstanceCount[e.target];
                     }
                     
-                    usedEdgeInstances[e.source] = (usedEdgeInstances[e.source] || 0) + 1;
-                    
-                    if (srcNodeId && tgtNodeId) {
-                        graphEdges.push({
-                            id: 'edge_' + edgeIdx,
-                            source: srcNodeId,
-                            target: tgtNodeId,
-                            size: 1
-                        });
-                    }
+                    return {
+                        id: 'edge_' + idx,
+                        source: srcUniqueId,
+                        target: tgtUniqueId,
+                        size: 1
+                    };
                 });
                 
-                const validNodeIds = new Set(graphNodes.map(n => n.id));
+                const validNodeIds = new Set(nodeIdxToUniqueId);
                 const finalEdges = graphEdges.filter(e => 
                     validNodeIds.has(e.source) && validNodeIds.has(e.target)
                 );
                 
                 const graphData = {
-                    nodes: graphNodes.map(n => ({
-                        id: n.id,
-                        label: data.nodes[n.idx].label,
-                        x: Math.random() * 100,
-                        y: Math.random() * 100,
-                        size: 5,
-                        color: colors[data.nodes[n.idx].element_type] || '#666',
-                        type: data.nodes[n.idx].element_type
-                    })),
+                    nodes: data.nodes.map((n, idx) => {
+                        const cachedPos = nodePositionCache[n.id];
+                        return {
+                            id: nodeIdxToUniqueId[idx],
+                            label: n.label,
+                            x: cachedPos ? cachedPos.x : (Math.random() * 100),
+                            y: cachedPos ? cachedPos.y : (Math.random() * 100),
+                            size: 5,
+                            color: colors[n.element_type] || '#666',
+                            type: n.element_type
+                        };
+                    }),
                     edges: finalEdges
                 };
+                
+                data.nodes.forEach((n, idx) => {
+                    nodePositionCache[n.id] = { x: graphData.nodes[idx].x, y: graphData.nodes[idx].y };
+                });
                 
                 sig = new sigma({
                     graph: graphData,
