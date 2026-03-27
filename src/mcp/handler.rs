@@ -393,17 +393,17 @@ impl ToolHandler {
     fn get_dependencies(&self, args: &Value) -> Result<Value, String> {
         let file = args["file"].as_str().ok_or("Missing 'file' parameter")?;
 
-        let relationships = self
+        let elements = self
             .graph_engine
-            .get_relationships(file)
+            .get_dependencies(file)
             .map_err(|e| e.to_string())?;
 
-        let deps: Vec<_> = relationships
+        let deps: Vec<_> = elements
             .iter()
-            .map(|r| {
+            .map(|e| {
                 json!({
-                    "target": r.target_qualified,
-                    "type": r.rel_type
+                    "target": e.qualified_name,
+                    "type": "imports"
                 })
             })
             .collect();
