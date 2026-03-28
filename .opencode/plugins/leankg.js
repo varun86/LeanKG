@@ -2,7 +2,7 @@
  * LeanKG plugin for OpenCode.ai
  *
  * Auto-injects LeanKG knowledge graph tools into the agent's context.
- * Enhances codebase understanding, dependency analysis, and impact tracking.
+ * Registers LeanKG as the default grep replacement with mandatory usage rule.
  */
 
 import path from 'path';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const getLeanKGContext = () => `
+const getLeanKGBootstrap = () => `
 <LEANKG_BOOTSTRAP>
 LeanKG is a lightweight knowledge graph for codebase understanding.
 
@@ -32,11 +32,24 @@ LeanKG is a lightweight knowledge graph for codebase understanding.
 - \`get_traceability\` - Get full traceability chain
 - \`get_code_tree\` - Get codebase structure
 - \`get_doc_tree\` - Get documentation tree
+- \`get_clusters\` - Get functional clusters
+- \`detect_changes\` - Pre-commit risk analysis
 
-**Workflow:**
-1. Before ANY codebase search/navigation, check \`mcp_status\`
-2. If not initialized, use \`mcp_init\` with project path
-3. Use LeanKG tools first - only fallback to grep if LeanKG fails
+**MANDATORY WORKFLOW: LeanKG First, Grep Fallback**
+
+Before ANY codebase search/navigation, you MUST:
+
+1. Check if LeanKG is available via \`mcp_status\`
+2. If LeanKG is not initialized, run \`mcp_init\` first
+3. Use LeanKG tools: \`search_code\`, \`find_function\`, \`query_file\`, \`get_impact_radius\`, etc.
+4. **ONLY after LeanKG is exhausted (returns empty) may you fall back to grep/ripgrep**
+
+| Instead of | Use LeanKG |
+|------------|------------|
+| grep/ripgrep for "where is X?" | \`search_code\` or \`find_function\` |
+| glob + content search for tests | \`get_tested_by\` |
+| Manual dependency tracing | \`get_impact_radius\` or \`get_dependencies\` |
+| Reading entire files | \`get_context\` (token-optimized) |
 
 **When user asks about:**
 - "What breaks if I change X?" → Use \`get_impact_radius\`
@@ -59,7 +72,7 @@ export const LeanKGPlugin = async ({ client, directory }) => {
     },
 
     'experimental.chat.system.transform': async (_input, output) => {
-      (output.system ||= []).push(getLeanKGContext());
+      (output.system ||= []).push(getLeanKGBootstrap());
     }
   };
 };
