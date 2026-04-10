@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let project_path = find_project_root()?;
             let db_path = project_path.join(".leankg");
-            tokio::fs::create_dir_all(&db_path).await?;
+            ensure_db_path(&db_path).await?;
             let exclude_patterns: Vec<String> = exclude
                 .as_ref()
                 .map(|e| e.split(',').map(|s| s.trim().to_string()).collect())
@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
             let project_path = find_project_root()?;
             let db_path = project_path.join(".leankg");
-            tokio::fs::create_dir_all(&db_path).await.ok();
+            ensure_db_path(&db_path).await?;
             web::start_server(port, db_path).await?;
         }
         cli::CLICommand::Web { port } => {
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
             let project_path = find_project_root()?;
             let db_path = project_path.join(".leankg");
-            tokio::fs::create_dir_all(&db_path).await.ok();
+            ensure_db_path(&db_path).await?;
             web::start_server(port, db_path).await?;
         }
         cli::CLICommand::McpStdio { watch, project_path } => {
@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let project_path = explicit_project_path.clone().unwrap_or_else(|| find_project_root().unwrap_or_else(|_| std::path::PathBuf::from(".")));
             let db_path = project_path.join(".leankg");
 
-            tokio::fs::create_dir_all(&db_path).await.ok();
+            ensure_db_path(&db_path).await?;
 
             let mcp_server = if let Some(ref pp) = explicit_project_path {
                 mcp::MCPServer::new_with_project_path(db_path, pp.clone())
@@ -277,7 +277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cli::CLICommand::ApiServe { port, auth } => {
             let project_path = find_project_root()?;
             let db_path = project_path.join(".leankg");
-            tokio::fs::create_dir_all(&db_path).await.ok();
+            ensure_db_path(&db_path).await?;
             api::start_api_server(port, db_path, auth).await?;
         }
         cli::CLICommand::ApiKey { command } => match command {
@@ -355,15 +355,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn find_project_root() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     let current_dir = std::env::current_dir()?;
-    if current_dir.join(".leankg").exists() || current_dir.join("leankg.yaml").exists() {
+    if current_dir.join(".leankg").is_dir() || current_dir.join("leankg.yaml").exists() {
         return Ok(current_dir);
     }
     for parent in current_dir.ancestors() {
-        if parent.join(".leankg").exists() || parent.join("leankg.yaml").exists() {
+        if parent.join(".leankg").is_dir() || parent.join("leankg.yaml").exists() {
             return Ok(parent.to_path_buf());
         }
     }
     Ok(current_dir)
+}
+
+/// Ensures the .leankg directory exists, handling legacy cases where
+/// .leankg was a file instead of a directory.
+async fn ensure_db_path(db_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    if db_path.exists() && !db_path.is_dir() {
+        eprintln!(
+            "Warning: '{}' is a file, removing it and creating directory",
+            db_path.display()
+        );
+        tokio::fs::remove_file(db_path).await?;
+    }
+    tokio::fs::create_dir_all(db_path).await?;
+    Ok(())
 }
 
 fn init_project(path: &str) -> Result<(), Box<dyn std::error::Error>> {
