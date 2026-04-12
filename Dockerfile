@@ -19,6 +19,7 @@ COPY src ./src
 RUN cargo build --release && strip target/release/leankg
 
 FROM debian:bookworm-slim
+WORKDIR /app
 RUN apt-get update && apt-get install -y ca-certificates git && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/leankg /usr/local/bin/
 COPY --from=builder /app/ui/dist /app/ui/dist
