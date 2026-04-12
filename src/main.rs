@@ -90,27 +90,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let db_path = project_path.join(".leankg");
             tokio::fs::create_dir_all(&db_path).await.ok();
 
-            let ui_port = 5173u16;
+            let ui_dist_exists = std::path::Path::new("ui/dist/index.html").exists();
 
             println!("╔═══════════════════════════════════════════════════════════════╗");
             println!("║  LeanKG Web UI                                              ║");
             println!("╚═══════════════════════════════════════════════════════════════╝");
             println!();
 
-            let mut vite_child = match spawn_vite_dev_server(ui_port).await {
-                Ok(child) => child,
-                Err(e) => {
-                    eprintln!("Failed to start Vite dev server: {}", e);
-                    return Err(e);
-                }
-            };
-            println!();
-            println!("🚀 Starting backend server on http://localhost:{}", port);
-            println!();
-
-            let result = web::start_server(port, db_path).await;
-            vite_child.kill().await.ok();
-            result?;
+            if ui_dist_exists {
+                println!("📦 Using pre-built UI from ui/dist");
+                println!();
+                println!("🚀 Starting backend server on http://localhost:{}", port);
+                println!();
+                web::start_server(port, db_path).await?;
+            } else {
+                let ui_port = 5173u16;
+                let mut vite_child = match spawn_vite_dev_server(ui_port).await {
+                    Ok(child) => child,
+                    Err(e) => {
+                        eprintln!("Failed to start Vite dev server: {}", e);
+                        return Err(e);
+                    }
+                };
+                println!();
+                println!("🚀 Starting backend server on http://localhost:{}", port);
+                println!();
+                let result = web::start_server(port, db_path).await;
+                vite_child.kill().await.ok();
+                result?;
+            }
         }
         cli::CLICommand::Web { port } => {
             let port = port.unwrap_or_else(|| {
@@ -123,27 +131,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let db_path = project_path.join(".leankg");
             tokio::fs::create_dir_all(&db_path).await.ok();
 
-            let ui_port = 5173u16;
+            let ui_dist_exists = std::path::Path::new("ui/dist/index.html").exists();
 
             println!("╔═══════════════════════════════════════════════════════════════╗");
             println!("║  LeanKG Web UI                                              ║");
             println!("╚═══════════════════════════════════════════════════════════════╝");
             println!();
 
-            let mut vite_child = match spawn_vite_dev_server(ui_port).await {
-                Ok(child) => child,
-                Err(e) => {
-                    eprintln!("Failed to start Vite dev server: {}", e);
-                    return Err(e);
-                }
-            };
-            println!();
-            println!("🚀 Starting backend server on http://localhost:{}", port);
-            println!();
-
-            let result = web::start_server(port, db_path).await;
-            vite_child.kill().await.ok();
-            result?;
+            if ui_dist_exists {
+                println!("📦 Using pre-built UI from ui/dist");
+                println!();
+                println!("🚀 Starting backend server on http://localhost:{}", port);
+                println!();
+                web::start_server(port, db_path).await?;
+            } else {
+                let ui_port = 5173u16;
+                let mut vite_child = match spawn_vite_dev_server(ui_port).await {
+                    Ok(child) => child,
+                    Err(e) => {
+                        eprintln!("Failed to start Vite dev server: {}", e);
+                        return Err(e);
+                    }
+                };
+                println!();
+                println!("🚀 Starting backend server on http://localhost:{}", port);
+                println!();
+                let result = web::start_server(port, db_path).await;
+                vite_child.kill().await.ok();
+                result?;
+            }
         }
         cli::CLICommand::McpStdio { watch } => {
             let project_path = find_project_root()?;
