@@ -126,7 +126,6 @@ fn should_ignore_path(path: &str) -> bool {
         // Common temp files
         || path.contains("/.tmp/")
         || path.contains("/temp/")
-        || path.contains("/tmp/")
 }
 
 fn is_cicd_yaml_file(path: &std::path::Path) -> bool {
