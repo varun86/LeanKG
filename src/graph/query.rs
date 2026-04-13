@@ -1272,23 +1272,25 @@ impl GraphEngine {
                 .and_then(|m| m.get("callee_file_hint").cloned())
                 .and_then(|v| v.as_str().map(String::from));
 
-            let (target_qn, confidence) = if let Some(hint) = &callee_file_hint {
+            let target_qn = if let Some(hint) = &callee_file_hint {
                 by_name_and_file.get(&(bare_name.clone(), hint.clone()))
-                    .map(|(qn, c)| (qn.clone(), *c))
-                    .or_else(|| by_name.get(&bare_name).map(|(qn, c)| (qn.clone(), *c)))
-                    .unwrap_or_else(|| (bare_name.clone(), 0.5))
+                    .map(|(qn, _)| qn.clone())
+                    .or_else(|| by_name.get(&bare_name).map(|(qn, _)| qn.clone()))
+                    .unwrap_or_else(|| bare_name.clone())
             } else {
                 by_name.get(&bare_name)
-                    .map(|(qn, c)| (qn.clone(), *c))
-                    .unwrap_or_else(|| (bare_name.clone(), 0.5))
+                    .map(|(qn, _)| qn.clone())
+                    .unwrap_or_else(|| bare_name.clone())
             };
 
+            let delete_target = format!("__unresolved__{}", bare_name);
+            self._delete_relationship(&source, &delete_target)?;
             to_insert.push(Relationship {
                 id: None,
                 source_qualified: source,
                 target_qualified: target_qn,
                 rel_type: "calls".to_string(),
-                confidence,
+                confidence: 1.0,
                 metadata: serde_json::json!({}),
             });
             resolved += 1;
@@ -1330,10 +1332,16 @@ impl GraphEngine {
     }
 
     fn _delete_relationship(&self, source: &str, target: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let safe_source = escape_datalog(source);
-        let safe_target = escape_datalog(target);
-        let query = format!(":rm relationships[source_qualified, target_qualified, rel_type, confidence, metadata] := source_qualified = \"{}\", target_qualified = \"{}\"", safe_source, safe_target);
-        self.db.run_script(&query, Default::default())?;
+        let query = r#"
+            ?[source_qualified, target_qualified, rel_type, confidence, metadata] :=
+                *relationships[source_qualified, target_qualified, rel_type, confidence, metadata], source_qualified = $sq, target_qualified = $tq, rel_type = "calls"
+            :rm relationships {source_qualified, target_qualified, rel_type, confidence, metadata}
+        "#;
+        let mut params = std::collections::BTreeMap::new();
+        params.insert("sq".to_string(), serde_json::Value::String(source.to_string()));
+        params.insert("tq".to_string(), serde_json::Value::String(target.to_string()));
+        
+        self.db.run_script(query, params)?;
         Ok(())
     }
 }
