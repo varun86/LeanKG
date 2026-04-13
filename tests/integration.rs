@@ -17,10 +17,11 @@ async fn test_find_files_empty_dir() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_find_files_discovers_go_files() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let root = tmp.path().to_str().unwrap();
     let go_file = tmp.path().join("main.go");
     std::fs::write(&go_file, "package main\nfunc main() {}").unwrap();
-    let files = find_files_sync(tmp.path().to_str().unwrap()).unwrap();
+    let files = find_files_sync(root).unwrap();
     assert!(!files.is_empty());
     assert!(files.iter().any(|f| f.ends_with("main.go")));
 }
@@ -37,12 +38,12 @@ async fn test_find_files_excludes_node_modules() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_find_files_in_nested_dirs() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = tempfile::TempDir::new().unwrap();
     let nested = tmp.path().join("a").join("b").join("c");
     std::fs::create_dir_all(&nested).unwrap();
     std::fs::write(nested.join("lib.py"), "def x(): pass").unwrap();
     let files = find_files_sync(tmp.path().to_str().unwrap()).unwrap();
-    assert!(files.iter().any(|f| f.ends_with("lib.py")));
+    assert!(files.iter().any(|f| f.ends_with("lib.py")), "Should find lib.py in nested dirs, got: {:?}", files);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -166,7 +167,7 @@ async fn test_index_file_go() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_find_files_discovers_java_files() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = tempfile::TempDir::new().unwrap();
     let java_dir = tmp.path().join("com").join("example");
     std::fs::create_dir_all(&java_dir).unwrap();
     std::fs::write(
@@ -175,8 +176,8 @@ async fn test_find_files_discovers_java_files() {
     )
     .unwrap();
     let files = find_files_sync(tmp.path().to_str().unwrap()).unwrap();
-    assert!(!files.is_empty());
-    assert!(files.iter().any(|f| f.ends_with("Main.java")));
+    assert!(!files.is_empty(), "Should find some files, got: {:?}", files);
+    assert!(files.iter().any(|f| f.ends_with("Main.java")), "Should find Main.java, got: {:?}", files);
 }
 
 #[tokio::test(flavor = "multi_thread")]
