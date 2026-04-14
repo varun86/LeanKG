@@ -7,6 +7,8 @@ pub mod terraform;
 
 pub mod config_extractor;
 pub mod framework_detector;
+pub mod gradle_extractor;
+pub mod maven_extractor;
 
 pub use cicd::*;
 pub use extractor::*;
@@ -16,6 +18,8 @@ pub use process_processor::*;
 pub use terraform::*;
 pub use config_extractor::*;
 pub use framework_detector::*;
+pub use gradle_extractor::*;
+pub use maven_extractor::*;
 
 use crate::db::models::{CodeElement, Relationship};
 use crate::graph::GraphEngine;
@@ -26,8 +30,10 @@ use walkdir::WalkDir;
 
 pub fn find_files_sync(root: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut files = Vec::new();
-    let extensions = ["go", "ts", "js", "py", "rs", "java", "tf", "yml", "yaml", "json", "toml", "mod"];
-    let config_files = ["package.json", "tsconfig.json", "Cargo.toml", "go.mod"];
+    let extensions = ["go", "ts", "js", "py", "rs", "java", "kt", "kts", "tf", "yml", "yaml", "json", "toml", "mod"];
+    let config_files = ["package.json", "tsconfig.json", "Cargo.toml", "go.mod",
+                        "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
+                        "pom.xml"];
 
     for entry in WalkDir::new(root)
         .follow_links(true)
@@ -195,6 +201,16 @@ fn extract_elements_for_file(file_path: &str) -> Result<ParsedFile, Box<dyn std:
         return Ok(ParsedFile { element_count: elements.len(), elements, relationships });
     } else if file_name == "go.mod" {
         let extractor = crate::indexer::ConfigExtractor::new(source, file_path, "go_mod");
+        let (elements, relationships) = extractor.extract();
+        return Ok(ParsedFile { element_count: elements.len(), elements, relationships });
+    } else if file_name == "build.gradle" || file_name == "build.gradle.kts"
+        || file_name == "settings.gradle" || file_name == "settings.gradle.kts"
+    {
+        let extractor = crate::indexer::GradleExtractor::new(source, file_path);
+        let (elements, relationships) = extractor.extract();
+        return Ok(ParsedFile { element_count: elements.len(), elements, relationships });
+    } else if file_name == "pom.xml" {
+        let extractor = crate::indexer::MavenExtractor::new(source, file_path);
         let (elements, relationships) = extractor.extract();
         return Ok(ParsedFile { element_count: elements.len(), elements, relationships });
     }
@@ -838,6 +854,52 @@ pub fn resolve_call_edges_inline(
 
     if resolved > 0 {
         eprintln!("Resolved {} call edges inline (no DB pass needed)", resolved);
+    }
+}
+
+pub fn detect_gradle_submodules(settings_content: &[u8]) -> Vec<String> {
+    let content = std::str::from_utf8(settings_content).unwrap_or("");
+    let re = regex::Regex::new(r#"include\(["']([^"']+)["']\)"#).unwrap();
+    re.captures_iter(content)
+        .filter_map(|cap| cap.get(1).map(|m| m.as_str().to_string()))
+        .collect()
+}
+
+pub fn detect_maven_submodules(pom_content: &[u8]) -> Vec<String> {
+    let content = std::str::from_utf8(pom_content).unwrap_or("");
+    let re = regex::Regex::new(r"<module>([^<]+)</module>").unwrap();
+    re.captures_iter(content)
+        .filter_map(|cap| cap.get(1).map(|m| m.as_str().trim().to_string()))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_gradle_submodules() {
+        let content = b#"include("api")
+include("core")
+include("web-app")"#;
+        let submodules = detect_gradle_submodules(content);
+        assert!(submodules.contains(&"api".to_string()));
+        assert!(submodules.contains(&"core".to_string()));
+        assert!(submodules.contains(&"web-app".to_string()));
+    }
+
+    #[test]
+    fn test_detect_maven_submodules() {
+        let content = br#"<?xml version="1.0"?>
+<project>
+    <modules>
+        <module>api</module>
+        <module>core</module>
+    </modules>
+</project>"#;
+        let submodules = detect_maven_submodules(content);
+        assert!(submodules.contains(&"api".to_string()));
+        assert!(submodules.contains(&"core".to_string()));
     }
 }
 
