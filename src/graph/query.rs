@@ -3,7 +3,7 @@ use crate::db::schema::CozoDb;
 use crate::graph::cache::QueryCache;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use parking_lot::RwLock;
+
 use tracing::debug;
 
 fn escape_datalog(s: &str) -> String {
@@ -127,7 +127,7 @@ impl GraphEngine {
         file_path: &str,
     ) -> Result<Vec<CodeElement>, Box<dyn std::error::Error>> {
         let normalized = normalize_path(file_path);
-        let escaped_normalized = escape_datalog(&normalized);
+        let _escaped_normalized = escape_datalog(&normalized);
 
         let cache = self.cache.clone();
         let cache_key = normalized.clone();
@@ -216,7 +216,7 @@ impl GraphEngine {
         target: &str,
     ) -> Result<Vec<Relationship>, Box<dyn std::error::Error>> {
         let normalized = normalize_path(target);
-        let escaped_normalized = escape_datalog(&normalized);
+        let _escaped_normalized = escape_datalog(&normalized);
 
         let cache = self.cache.clone();
         let cache_key = normalized.clone();

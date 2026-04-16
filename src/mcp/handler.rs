@@ -113,6 +113,7 @@ pub struct ToolHandler {
     graph_engine: GraphEngine,
     db_path: std::path::PathBuf,
     orchestrator: QueryOrchestrator,
+    session_cache: std::sync::Arc<parking_lot::RwLock<crate::compress::SessionCache>>,
 }
 
 impl ToolHandler {
@@ -121,6 +122,7 @@ impl ToolHandler {
             graph_engine: graph_engine.clone(),
             db_path,
             orchestrator: QueryOrchestrator::with_persistence(graph_engine),
+            session_cache: std::sync::Arc::new(parking_lot::RwLock::new(crate::compress::SessionCache::new())),
         }
     }
 
@@ -347,7 +349,8 @@ impl ToolHandler {
         let requested_mode = ReadMode::from_str(mode_str)
             .ok_or_else(|| format!("Invalid mode: {}. Valid modes: adaptive, full, map, signatures, diff, aggressive, entropy, lines", mode_str))?;
 
-        let mut reader = FileReader::new();
+        let mut reader = FileReader::new(self.session_cache.clone());
+        let fresh = args["fresh"].as_bool().unwrap_or(false);
         
         let result = if requested_mode == ReadMode::Adaptive {
             let content = std::fs::read_to_string(file)
@@ -357,19 +360,31 @@ impl ToolHandler {
             let file_size = content.len();
             
             let selected_mode = ReadMode::select_adaptive(file, file_size, lines_count);
-            reader.read(file, selected_mode, lines_spec).map_err(|e| e.to_string())?
+            reader.read(file, selected_mode, lines_spec, fresh).map_err(|e| e.to_string())?
         } else {
-            reader.read(file, requested_mode, lines_spec).map_err(|e| e.to_string())?
+            reader.read(file, requested_mode, lines_spec, fresh).map_err(|e| e.to_string())?
         };
 
-        Ok(json!({
-            "path": result.path,
-            "mode": format!("{:?}", result.mode),
-            "content": result.content,
-            "tokens": result.tokens,
-            "total_tokens": result.total_tokens,
-            "savings_percent": result.savings_percent
-        }))
+        let file_name = std::path::Path::new(file)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+
+        let header = format!(
+            "{} [{}L] mode={:?}",
+            file_name,
+            result.output_lines,
+            result.mode
+        );
+        let footer = format!(
+            "---\noriginal: {} tokens | sent: {} tokens ({:.1}% saved)",
+            result.total_tokens,
+            result.tokens,
+            result.savings_percent
+        );
+
+        let final_string = format!("{}\n{}\n{}", header, result.content, footer);
+        Ok(Value::String(final_string))
     }
 
     fn orchestrate_tool(&self, args: &Value) -> Result<Value, String> {
@@ -499,6 +514,20 @@ impl ToolHandler {
                         ("ts", "typescript"),
                         ("js", "javascript"),
                         ("py", "python"),
+                        ("java", "java"),
+                        ("kt", "kotlin"),
+                        ("kts", "kotlin"),
+                        ("sh", "bash"),
+                        ("bash", "bash"),
+                        ("zsh", "bash"),
+                        ("rb", "ruby"),
+                        ("php", "php"),
+                        ("pl", "perl"),
+                        ("pm", "perl"),
+                        ("r", "r"),
+                        ("R", "r"),
+                        ("ex", "elixir"),
+                        ("exs", "elixir"),
                     ]
                     .iter()
                     .cloned()

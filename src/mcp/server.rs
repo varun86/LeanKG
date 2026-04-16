@@ -625,9 +625,15 @@ impl ServerHandler for MCPServer {
         let arguments = request.arguments.unwrap_or_default();
 
         match self.execute_tool(tool_name, arguments).await {
-            Ok(result) => Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&result).unwrap_or_default(),
-            )])),
+            Ok(result) => {
+                let content_str = if let Some(s) = result.as_str() {
+                    s.to_string() // Already purely text (e.g. from context chunk fetch)
+                } else {
+                    crate::mcp::toon::to_string(&result) // Compress standard JSON schemas into TOON format
+                };
+                
+                Ok(CallToolResult::success(vec![Content::text(content_str)]))
+            },
             Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
                 "Tool execution failed: {}",
                 e

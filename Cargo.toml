@@ -43,6 +43,14 @@ flate2 = "1"
 tempfile = "3"
 rust-embed = "8"
 ignore = "0.4.25"
+similar = "3.1.0"
+tree-sitter-bash = "0.25"
+tree-sitter-ruby = "0.23.1"
+tree-sitter-php = "0.24.2"
+tree-sitter-elixir = "0.3.5"
+tree-sitter-r = "1.2.0"
+tree-sitter = "0.26"
+tree-sitter-perl = "1.1.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 axum = "0.7"
@@ -51,12 +59,17 @@ notify = "7"
 parking_lot = "0.12"
 tokio = { version = "1", features = ["full"] }
 rmcp = { version = "1.2.0", features = ["server", "transport-io"] }
-tree-sitter = "0.25"
+tree-sitter = "0.26"
 tree-sitter-go = "0.25"
 tree-sitter-typescript = "0.23"
 tree-sitter-python = "0.25"
 tree-sitter-rust = "0.24"
 tree-sitter-java = "0.23"
+tree-sitter-bash = "0.25"
+tree-sitter-ruby = "0.23"
+tree-sitter-php = "0.24"
+tree-sitter-perl = "1.1"
+tree-sitter-r = "1.2"
+tree-sitter-elixir = "0.3"
 
 [dev-dependencies]
-

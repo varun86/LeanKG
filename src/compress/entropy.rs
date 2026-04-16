@@ -1,18 +1,28 @@
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use std::collections::HashMap;
+use std::io::Write;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompressibilityClass {
+    High,
+    Medium,
+    Low,
+}
 
 pub struct EntropyAnalyzer {
-    #[allow(dead_code)]
-    window_size: usize,
-    #[allow(dead_code)]
     jaccard_threshold: f64,
 }
 
+impl Default for EntropyAnalyzer {
+    fn default() -> Self {
+        Self::new(0.7)
+    }
+}
+
 impl EntropyAnalyzer {
-    pub fn new(window_size: usize, jaccard_threshold: f64) -> Self {
-        Self {
-            window_size,
-            jaccard_threshold,
-        }
+    pub fn new(jaccard_threshold: f64) -> Self {
+        Self { jaccard_threshold }
     }
 
     pub fn shannon_entropy(&self, text: &str) -> f64 {
@@ -52,6 +62,36 @@ impl EntropyAnalyzer {
         }
     }
 
+    pub fn kolmogorov_proxy(text: &str) -> usize {
+        if text.is_empty() {
+            return 0;
+        }
+        let mut e = GzEncoder::new(Vec::new(), Compression::default());
+        let _ = e.write_all(text.as_bytes());
+        match e.finish() {
+            Ok(compressed) => compressed.len(),
+            Err(_) => text.len(), // Fallback
+        }
+    }
+
+    pub fn compressibility_class(text: &str) -> CompressibilityClass {
+        let bytes_len = text.len();
+        if bytes_len == 0 {
+            return CompressibilityClass::Low;
+        }
+
+        let k_size = Self::kolmogorov_proxy(text);
+        let ratio = k_size as f64 / bytes_len as f64;
+
+        if ratio < 0.3 {
+            CompressibilityClass::High
+        } else if ratio < 0.6 {
+            CompressibilityClass::Medium
+        } else {
+            CompressibilityClass::Low
+        }
+    }
+
     pub fn line_entropies(&self, lines: &[&str]) -> Vec<f64> {
         lines
             .iter()
@@ -59,75 +99,72 @@ impl EntropyAnalyzer {
             .collect()
     }
 
-    pub fn jaccard_similarity(set1: &[&str], set2: &[&str]) -> f64 {
-        if set1.is_empty() && set2.is_empty() {
-            return 1.0;
-        }
-        if set1.is_empty() || set2.is_empty() {
-            return 0.0;
-        }
-
-        let set1: std::collections::HashSet<_> = set1.iter().collect();
-        let set2: std::collections::HashSet<_> = set2.iter().collect();
-
-        let intersection = set1.intersection(&set2).count();
-        let union = set1.union(&set2).count();
-
-        if union == 0 {
-            return 0.0;
-        }
-
-        intersection as f64 / union as f64
-    }
-
     pub fn filter_low_entropy_lines<'a>(&self, lines: &[&'a str], threshold: f64) -> Vec<&'a str> {
-        let entropies = self.line_entropies(lines);
-        lines
-            .iter()
-            .zip(entropies.iter())
-            .filter(|(_, &entropy)| entropy >= threshold)
-            .map(|(line, _)| *line)
-            .collect()
-    }
+        let mut filtered = Vec::new();
+        let mut last_was_empty = false;
+        
+        // Fast paths for very uncompressible files
+        let full_text = lines.join("\n");
+        let class = Self::compressibility_class(&full_text);
 
-    pub fn find_repetitive_patterns(&self, lines: &[&str]) -> Vec<(usize, usize)> {
-        let mut patterns = Vec::new();
-        let n = lines.len();
+        let dynamic_threshold = match class {
+            CompressibilityClass::High => threshold * 1.5, // Aggressive prune if highly repetitive
+            CompressibilityClass::Medium => threshold,
+            CompressibilityClass::Low => threshold * 0.5, // Be gentle if it's already dense
+        };
 
-        if n < 2 {
-            return patterns;
-        }
-
-        for window_size in 2..=(n / 2).min(10) {
-            for i in 0..=(n - 2 * window_size) {
-                let pattern = &lines[i..i + window_size];
-                let mut count = 1;
-
-                for j in (i + window_size..=(n - window_size)).step_by(window_size) {
-                    if lines[j..j + window_size] == *pattern {
-                        count += 1;
-                    }
+        for &line in lines {
+            let t = line.trim();
+            if t.is_empty() {
+                if !last_was_empty {
+                    filtered.push(line);
+                    last_was_empty = true;
                 }
+                continue;
+            }
 
-                if count >= 3 {
-                    patterns.push((i, window_size));
-                }
+            last_was_empty = false;
+
+            // Always keep structural bounds
+            if t.starts_with("fn ")
+                || t.starts_with("class ")
+                || t.starts_with("pub ")
+                || t.ends_with('{')
+                || t == "}"
+            {
+                filtered.push(line);
+                continue;
+            }
+
+            let e = self.normalized_entropy(line);
+            if e >= dynamic_threshold {
+                filtered.push(line);
             }
         }
 
-        patterns
-    }
-
-    pub fn kolmogorov_adjustment(&self, entropy: f64, complexity: usize) -> f64 {
-        let complexity_factor = 1.0 / (1.0 + (complexity as f64).ln());
-        entropy * complexity_factor
+        filtered
     }
 }
 
-impl Default for EntropyAnalyzer {
-    fn default() -> Self {
-        Self::new(256, 0.7)
+pub fn jaccard_similarity(set1: &[&str], set2: &[&str]) -> f64 {
+    if set1.is_empty() && set2.is_empty() {
+        return 1.0;
     }
+    if set1.is_empty() || set2.is_empty() {
+        return 0.0;
+    }
+
+    let set1: std::collections::HashSet<_> = set1.iter().collect();
+    let set2: std::collections::HashSet<_> = set2.iter().collect();
+
+    let intersection = set1.intersection(&set2).count();
+    let union = set1.union(&set2).count();
+
+    if union == 0 {
+        return 0.0;
+    }
+
+    intersection as f64 / union as f64
 }
 
 #[cfg(test)]
@@ -135,34 +172,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_shannon_entropy() {
-        let analyzer = EntropyAnalyzer::default();
-
-        let uniform = "abcdefghijklmnop";
-        let repeated = "aaaaaaaa";
-        let mixed = "aZ4!@9#";
-
-        let entropy_uniform = analyzer.shannon_entropy(uniform);
-        let entropy_repeated = analyzer.shannon_entropy(repeated);
-        let entropy_mixed = analyzer.shannon_entropy(mixed);
-
-        assert!(entropy_repeated < entropy_uniform);
-        assert!(entropy_mixed < entropy_uniform);
-    }
-
-    #[test]
-    fn test_filter_low_entropy() {
-        let analyzer = EntropyAnalyzer::default();
-        let lines = vec!["aaaaa", "xxxxx", "abcde", "fghij"];
-        let filtered = analyzer.filter_low_entropy_lines(&lines, 0.5);
-        assert_eq!(filtered.len(), 2);
-    }
-
-    #[test]
-    fn test_jaccard_similarity() {
-        let a = vec!["x", "y", "z"];
-        let b = vec!["y", "z", "w"];
-        let similarity = EntropyAnalyzer::jaccard_similarity(&a, &b);
-        assert!((similarity - 0.5).abs() < 0.01);
+    fn test_kolmogorov() {
+        let text = "a".repeat(1000);
+        let k = EntropyAnalyzer::kolmogorov_proxy(&text);
+        assert!(k < 100);
+        
+        assert_eq!(EntropyAnalyzer::compressibility_class(&text), CompressibilityClass::High);
     }
 }

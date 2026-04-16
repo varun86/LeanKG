@@ -113,8 +113,8 @@ impl QueryOrchestrator {
     }
 
     fn read_file(&self, path: &str, mode: ReadMode) -> Result<CachedContent, String> {
-        let mut reader = FileReader::new();
-        let result = reader.read(path, mode, None).map_err(|e| e.to_string())?;
+        let mut reader = FileReader::default();
+        let result = reader.read(path, mode, None, false).map_err(|e| e.to_string())?;
         Ok(CachedContent {
             content: result.content,
             mode: format!("{:?}", result.mode),

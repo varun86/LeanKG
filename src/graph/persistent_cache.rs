@@ -2,7 +2,7 @@ use crate::db::schema::CozoDb;
 use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
 #[derive(Clone)]
@@ -196,6 +196,7 @@ impl PersistentCache {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
 
     static TEST_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
 

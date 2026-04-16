@@ -6,7 +6,7 @@ pub struct FrameworkDetector;
 
 impl FrameworkDetector {
     pub fn detect_frameworks(
-        elements: &[CodeElement],
+        _elements: &[CodeElement],
         relationships: &[Relationship],
     ) -> (Vec<CodeElement>, Vec<Relationship>) {
         let mut new_elements = Vec::new();

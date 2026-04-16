@@ -1,5 +1,5 @@
 use crate::db::models::{CodeElement, Relationship};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 const MIN_TRACE_CONFIDENCE: f64 = 0.5;
 const MAX_TRACE_DEPTH: usize = 10;

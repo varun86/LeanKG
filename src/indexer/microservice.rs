@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 
 pub struct MicroserviceExtractor {
     grpc_pattern: Regex,
-    http_pattern: Regex,
+    _http_pattern: Regex,
     client_dirs: Vec<String>,
 }
 
@@ -18,7 +18,7 @@ impl MicroserviceExtractor {
             grpc_pattern: Regex::new(r"dns:///([a-z0-9-]+)\.default\.svc\.cluster\.local\.:\d+")
                 .unwrap(),
             // Matches: http://service-name.default.svc.cluster.local./
-            http_pattern: Regex::new(r"https?://([a-z0-9-]+)\.default\.svc\.cluster\.local\.")
+            _http_pattern: Regex::new(r"https?://([a-z0-9-]+)\.default\.svc\.cluster\.local\.")
                 .unwrap(),
             client_dirs: vec!["internal/external".to_string()],
         }
@@ -33,7 +33,7 @@ impl MicroserviceExtractor {
             grpc_pattern: Regex::new(&grpc_pattern).unwrap_or_else(|_| {
                 Regex::new(r"dns:///[a-z0-9-]+\.default\.svc\.cluster\.local\.\:\d+").unwrap()
             }),
-            http_pattern: Regex::new(&http_pattern).unwrap_or_else(|_| {
+            _http_pattern: Regex::new(&http_pattern).unwrap_or_else(|_| {
                 Regex::new(r"https?://[a-z0-9-]+\.default\.svc\.cluster\.local\.").unwrap()
             }),
             client_dirs,

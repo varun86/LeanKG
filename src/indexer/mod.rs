@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 pub fn find_files_sync(root: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut files = Vec::new();
-    let extensions = ["go", "ts", "js", "py", "rs", "java", "kt", "kts", "tf", "yml", "yaml", "json", "toml", "mod"];
+    let extensions = ["go", "ts", "js", "py", "rs", "java", "kt", "kts", "tf", "yml", "yaml", "json", "toml", "mod", "sh", "bash", "zsh", "rb", "php", "pl", "pm", "r", "R", "ex", "exs"];
     let config_files = ["package.json", "tsconfig.json", "Cargo.toml", "go.mod",
                         "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
                         "pom.xml"];
@@ -91,6 +91,18 @@ fn get_language(file_path: &str) -> Option<&'static str> {
         Some("java")
     } else if file_path.ends_with(".kt") || file_path.ends_with(".kts") {
         Some("kotlin")
+    } else if file_path.ends_with(".sh") || file_path.ends_with(".bash") || file_path.ends_with(".zsh") {
+        Some("bash")
+    } else if file_path.ends_with(".rb") {
+        Some("ruby")
+    } else if file_path.ends_with(".php") {
+        Some("php")
+    } else if file_path.ends_with(".pl") || file_path.ends_with(".pm") {
+        Some("perl")
+    } else if file_path.ends_with(".r") || file_path.ends_with(".R") {
+        Some("r")
+    } else if file_path.ends_with(".ex") || file_path.ends_with(".exs") {
+        Some("elixir")
     } else if file_path.ends_with("package.json") || file_path.ends_with("tsconfig.json") {
         Some("package_json")
     } else if file_path.ends_with("Cargo.toml") {
@@ -150,7 +162,9 @@ fn extract_elements_for_file(file_path: &str) -> Result<ParsedFile, Box<dyn std:
     };
 
     thread_local! {
-        static PARSERS: std::cell::RefCell<Vec<Option<tree_sitter::Parser>>> = std::cell::RefCell::new(vec![None, None, None, None, None, None]);
+        static PARSERS: std::cell::RefCell<Vec<Option<tree_sitter::Parser>>> = std::cell::RefCell::new(vec![
+            None, None, None, None, None, None, None, None, None, None, None, None
+        ]);
     }
 
     let parser_idx = match language {
@@ -160,6 +174,12 @@ fn extract_elements_for_file(file_path: &str) -> Result<ParsedFile, Box<dyn std:
         "rust" => 3,
         "java" => 4,
         "kotlin" => 5,
+        "bash" => 6,
+        "ruby" => 7,
+        "php" => 8,
+        "perl" => 9,
+        "r" => 10,
+        "elixir" => 11,
         _ => return Ok(ParsedFile { element_count: 0, elements: vec![], relationships: vec![] }),
     };
 
@@ -174,6 +194,12 @@ fn extract_elements_for_file(file_path: &str) -> Result<ParsedFile, Box<dyn std:
                 "rust" => tree_sitter_rust::LANGUAGE.into(),
                 "java" => tree_sitter_java::LANGUAGE.into(),
                 "kotlin" => tree_sitter_kotlin_ng::LANGUAGE.into(),
+                "bash" => tree_sitter_bash::LANGUAGE.into(),
+                "ruby" => tree_sitter_ruby::LANGUAGE.into(),
+                "php" => tree_sitter_php::LANGUAGE_PHP.into(),
+                "perl" => tree_sitter_perl::LANGUAGE.into(),
+                "r" => tree_sitter_r::LANGUAGE.into(),
+                "elixir" => tree_sitter_elixir::LANGUAGE.into(),
                 _ => return p,
             };
             let _ = p.set_language(&lang);
@@ -357,6 +383,18 @@ pub fn index_file_sync(
         "java"
     } else if file_path.ends_with(".kt") || file_path.ends_with(".kts") {
         "kotlin"
+    } else if file_path.ends_with(".sh") || file_path.ends_with(".bash") || file_path.ends_with(".zsh") {
+        "bash"
+    } else if file_path.ends_with(".rb") {
+        "ruby"
+    } else if file_path.ends_with(".php") {
+        "php"
+    } else if file_path.ends_with(".pl") || file_path.ends_with(".pm") {
+        "perl"
+    } else if file_path.ends_with(".r") || file_path.ends_with(".R") {
+        "r"
+    } else if file_path.ends_with(".ex") || file_path.ends_with(".exs") {
+        "elixir"
     } else {
         return Ok(0);
     };

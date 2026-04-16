@@ -1,17 +1,23 @@
 pub mod cargo_test;
 pub mod entropy;
+pub mod litm;
+pub mod signatures;
 pub mod git_diff;
 pub mod modes;
 pub mod reader;
 pub mod response;
+pub mod session_cache;
 pub mod shell;
+pub mod symbol_map;
 
 pub use cargo_test::CargoTestCompressor;
 pub use git_diff::GitDiffCompressor;
 pub use modes::ReadMode;
 pub use reader::FileReader;
 pub use response::ResponseCompressor;
+pub use session_cache::SessionCache;
 pub use shell::ShellCompressor;
+
 
 pub const CHARS_PER_TOKEN: usize = 4;
 
